@@ -63,7 +63,7 @@ def image_callback(self, image):
 
 if __name__ == '__main__':
     bridge = CvBridge()
-    image_sub = rospy.Subscriber("/bebop/image_raw", Image, image_callback)
+    image_sub = rospy.Subscriber("/tello/image_raw", Image, image_callback)
     while True:
         # Wait for the next frame
         if not video.frame_available():

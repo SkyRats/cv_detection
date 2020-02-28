@@ -43,10 +43,19 @@ class ShapeDetector:
             #                    [0, 0, 0, 0, 0, 0],
             #                    [0, 0, 255, 255, 0, 0],
             #                    [0, 0, 255, 255, 0, 0]], np.int32)
-            kernel = np.array([[0, 255, 0],
-                            [0, 0,   0],
-                            [0, 255, 0]], np.float64)
-            cv2.imshow("Convolution kernel", kernel)
+            kernel = np.array([[-1, 5, -1],
+                        [-1, -1, -1],
+                        [-1, 5, -1]], np.float64)
+            kernel2 = np.array([[5, -0.35, -1],
+                                [-0.35, -1, -1],
+                                [-1, -1, 5]], np.float64)
+            kernel3 = np.array([[-1, -1, -1],
+                                [5, -1, 5],
+                                [-1, -1, -1]], np.float64)
+            kernel4 = np.array([[-0.35, -1, 5],
+                                [-1, -1, -1],
+                                [5, -0.35, -1]], np.float64)
+            #cv2.imshow("Convolution kernel", kernel)
 
             for cnt in cnts:
                 peri = cv2.arcLength(cnt, True)
@@ -61,11 +70,6 @@ class ShapeDetector:
                 if len(approx) == 12:
                     cv2.putText(self.gray, "H", (x,y), self.font, 1, (0, 255, 0))
                     cv2.drawContours(self.gray, [approx], 0, (0, 255, 0), 2)
-                    M = cv2.moments(cnt)
-                    self.detection.vector.x = int(M["m10"] / M["m00"])
-                    self.detection.vector.y = int(M["m01"] / M["m00"])
-                    self.detection.vector.z = cv2.contourArea(cnt)/(self.gray.shape[0]*self.gray.shape[1])
-                    self.detection_pub.publish(self.detection)
 
                     box = np.float32([[0, 0],
                                     [thresh.shape[0], 0],
@@ -78,13 +82,30 @@ class ShapeDetector:
                                         [approx[5][0][0], approx[5][0][1]],
                                         [approx[6][0][0], approx[6][0][1]] ])
                     transformed = self.four_point_transform(thresh, self.edge_pts)
-                    cv2.imshow("Transformed Image", transformed)
+                    #cv2.imshow("Transformed Image", transformed)
                     # M = cv2.getPerspectiveTransform(self.edge_pts, box)
                     # small_img = cv2.warpPerspective(thresh, M, thresh.shape)
 
                     small_img = cv2.resize(transformed, (3, 3), interpolation=cv2.INTER_AREA)
                     cv2.imshow("Small Image", small_img)
-                    result = small_img.dot(kernel)
+                    parts = small_img*kernel
+                    parts2 = small_img*kernel2
+                    parts4 = small_img*kernel4
+                    soma4 = parts4.sum()
+                    soma = parts.sum()
+                    soma2 = parts2.sum()
+                    parts3 = small_img*kernel3
+                    soma3 = parts3.sum()
+                    print soma
+                    if (soma>=1240 or soma2>=1240 or soma3>=1240 or soma4>=1240):
+                        M = cv2.moments(cnt)
+                        self.detection.vector.x = int(M["m10"] / M["m00"])
+                        self.detection.vector.y = int(M["m01"] / M["m00"])
+                        self.detection.vector.z = cv2.contourArea(cnt)/(self.gray.shape[0]*self.gray.shape[1])
+                        self.detection_pub.publish(self.detection)
+                        cv2.putText(self.gray, "Eh um H", (x,y), self.font, 1, (0, 255, 0))
+                        cv2.drawContours(self.gray, [approx], 0, (0, 255, 0), 2)
+
                     # i=0
                     # for v in approx:
                     #     cv2.putText(self.gray, str(i), (v[0][0], v[0][1]), self.font, 1, (0, 255, 0))
