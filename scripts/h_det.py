@@ -19,11 +19,15 @@ class ShapeDetector:
         self.detection_pub = rospy.Publisher("/cv_detection/detection", Vector3Stamped, queue_size=1)
         self.bridge = CvBridge()
         self.gray = np.zeros((256, 256, 1), dtype = "uint8")
-        self.image_sub = rospy.Subscriber("/tello/image_raw", Image, self.image_callback)
+        self.image_sub = rospy.Subscriber("/camera/image_raw", Image, self.image_callback) ## DEBUG change to tello
+        self.img_publisher = rospy.Publisher("/cv_detection/debug/image", Image, queue_size=1)
+        self.small_img_publisher = rospy.Publisher("/cv_detection/debug/small_image", Image, queue_size=1)
+
 
     def image_callback(self, image):
         try:
             self.gray = self.bridge.imgmsg_to_cv2(image, "mono8")
+            print("callback")
             self.detect()
             # self.gray = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2GRAY)
             # self.gray = self.cv_image
@@ -87,7 +91,9 @@ class ShapeDetector:
                     # small_img = cv2.warpPerspective(thresh, M, thresh.shape)
 
                     small_img = cv2.resize(transformed, (3, 3), interpolation=cv2.INTER_AREA)
-                    cv2.imshow("Small Image", small_img)
+                    small_debug_img = self.bridge.cv2_to_imgmsg(small_img, "mono8")
+                    self.small_img_publisher.publish(small_debug_img)
+                    #cv2.imshow("Small Image", small_img)
                     parts = small_img*kernel
                     parts2 = small_img*kernel2
                     parts4 = small_img*kernel4
@@ -105,8 +111,9 @@ class ShapeDetector:
                         self.detection_pub.publish(self.detection)
                         cv2.putText(self.gray, "Eh um H", (x,y), self.font, 1, (0, 255, 0))
                         cv2.drawContours(self.gray, [approx], 0, (0, 255, 0), 2)
-
-                    # i=0
+                        cv2.circle(self.gray, (self.detection.vector.x, self.detection.vector.y), 10, (2555,255,255),  3)
+                        
+                    # i=0c
                     # for v in approx:
                     #     cv2.putText(self.gray, str(i), (v[0][0], v[0][1]), self.font, 1, (0, 255, 0))
                     #     i += 1
@@ -115,7 +122,11 @@ class ShapeDetector:
             #gray = cv2.cvtColor(self.gray, cv2.COLOR_BGR2GRAY)
 
             # Display the resulting self.gray
-            cv2.imshow('frame', self.gray)
+            debug_img = self.bridge.cv2_to_imgmsg(self.gray, "mono8")
+            print(self.gray.shape)
+            self.img_publisher.publish(debug_img)
+            
+            #cv2.imshow('frame', self.gray)
 
     def order_points(self, pts):
         # initialzie a list of coordinates that will be ordered
