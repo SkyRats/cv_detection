@@ -19,7 +19,7 @@ class ShapeDetector:
         self.detection_pub = rospy.Publisher("/cv_detection/detection", Vector3Stamped, queue_size=1)
         self.bridge = CvBridge()
         self.gray = np.zeros((256, 256, 1), dtype = "uint8")
-        self.image_sub = rospy.Subscriber("/camera/image_raw", Image, self.image_callback) ## DEBUG change to tello
+        self.image_sub = rospy.Subscriber("/tello/image_raw", Image, self.image_callback) ## DEBUG change to tello
         self.img_publisher = rospy.Publisher("/cv_detection/debug/image", Image, queue_size=1)
         self.small_img_publisher = rospy.Publisher("/cv_detection/debug/small_image", Image, queue_size=1)
 
@@ -27,7 +27,6 @@ class ShapeDetector:
     def image_callback(self, image):
         try:
             self.gray = self.bridge.imgmsg_to_cv2(image, "mono8")
-            print("callback")
             self.detect()
             # self.gray = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2GRAY)
             # self.gray = self.cv_image
@@ -102,7 +101,7 @@ class ShapeDetector:
                     soma2 = parts2.sum()
                     parts3 = small_img*kernel3
                     soma3 = parts3.sum()
-                    print soma
+                    #print soma
                     if (soma>=1240 or soma2>=1240 or soma3>=1240 or soma4>=1240):
                         M = cv2.moments(cnt)
                         self.detection.vector.x = int(M["m10"] / M["m00"])
@@ -111,8 +110,8 @@ class ShapeDetector:
                         self.detection_pub.publish(self.detection)
                         cv2.putText(self.gray, "Eh um H", (x,y), self.font, 1, (0, 255, 0))
                         cv2.drawContours(self.gray, [approx], 0, (0, 255, 0), 2)
-                        cv2.circle(self.gray, (self.detection.vector.x, self.detection.vector.y), 10, (2555,255,255),  3)
-                        
+                        cv2.circle(self.gray, (self.detection.vector.x, self.detection.vector.y), 10, (255,255,255),  3)
+                        print(self.detection.vector.z)
                     # i=0c
                     # for v in approx:
                     #     cv2.putText(self.gray, str(i), (v[0][0], v[0][1]), self.font, 1, (0, 255, 0))
@@ -123,7 +122,7 @@ class ShapeDetector:
 
             # Display the resulting self.gray
             debug_img = self.bridge.cv2_to_imgmsg(self.gray, "mono8")
-            print(self.gray.shape)
+            #print(self.gray.shape)
             self.img_publisher.publish(debug_img)
             
             #cv2.imshow('frame', self.gray)
