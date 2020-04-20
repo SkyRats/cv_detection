@@ -1,24 +1,26 @@
 #include <opencv2/core.hpp>
+#include <opencv2/videoio.hpp>
+#include <opencv2/imgproc.hpp>
+#include<opencv2/highgui.hpp>
+
 #include <bits/stdc++.h>
+
 using namespace cv;
 using namespace std;
 
-#define vp vector<pair<double, double>>
+array<double, 2> order_points(array<double, 2> pts[4]){
 
-vp order_points(vp pts){
+    sort(pts, pts+4);
+    array<double, 2> bl;
 
-    sort(pts.begin(), pts.end());
-
-    pair<double, double> bl;
-
-    if(pts[0].second > pts[1].second){
+    if(pts[0][1] > pts[1][1]){
         bl = pts[1];
     }else{
         bl = pts[0];
         pts[0] = pts[1];
     }
     
-    if(pts[2].second < pts[3].second){
+    if(pts[2][1] < pts[3][1]){
         pts[1] = pts[3];
     }else{
         pts[1] = pts[2];
@@ -26,17 +28,27 @@ vp order_points(vp pts){
     }
     pts[3] = bl;
 
-    return pts;
+    return *pts;
 }
 
 int main(){
 
-    vector<pair<double, double>> test, result; 
-    test = { make_pair(0,1), make_pair(2,3), make_pair(4,5), make_pair(6,7)};
+    while(true){
 
-    result = order_points(test);
+        VideoCapture cap(0);
+        Mat frame, gray;
 
-    for(auto loop : result) cout<<loop.first<<" "<<loop.second<<"\n";
+        cap >> frame;
+        cvtColor(frame, frame, CV_RGB2GRAY);
+
+        //detect(gray);
+
+        imshow("frame", frame);
+
+        if(waitKey(1) == 27) break;
+    
+    }
 
     return 0;
+    
 }
