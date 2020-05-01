@@ -105,8 +105,6 @@ def detect(frame):
                                 [approx[6][0][0], approx[6][0][1]] ])
             transformed = four_point_transform(thresh, edge_pts)
             cv2.imshow("Transformed Image", transformed)
-            M = cv2.getPerspectiveTransform(edge_pts, box)
-            #small_img = cv2.warpPerspective(thresh, M, thresh.shape)
 
             small_img = cv2.resize(transformed, (3, 3), interpolation=cv2.INTER_AREA)
             if DEBUG:
@@ -129,8 +127,9 @@ def main():
     ####################################################################
     while(True):
         # Capture frame-by-frame
-        ret, frame = cap.read()
-        
+        frame = cap.read()
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         detect(gray)
         # Display the resulting frame
         cv2.imshow('frame',frame)
