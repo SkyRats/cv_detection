@@ -7,7 +7,7 @@ font = cv2.FONT_HERSHEY_COMPLEX
 
 ####################################################################
 
-DEBUG = True
+DEBUG = False
 
 def order_points(pts):
 	# initialzie a list of coordinates that will be ordered
@@ -57,6 +57,7 @@ def four_point_transform(image, pts):
 		[maxWidth - 1, maxHeight - 1],
 		[0, maxHeight - 1]], dtype = "float32")
 	# compute the perspective transform matrix and then apply it
+
 	M = cv2.getPerspectiveTransform(rect, dst)
 	warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
 	# return the warped image
@@ -64,7 +65,6 @@ def four_point_transform(image, pts):
 
 def detect(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
     blur1 = cv2.GaussianBlur(gray, (9,9), 0)
     blur2 = cv2.GaussianBlur(blur1, (9,9), 0)
     _, thresh = cv2.threshold(blur2, 120, 255, cv2.THRESH_BINARY)
@@ -82,6 +82,7 @@ def detect(frame):
                         [-1, -1, -1],
                         [5, -0.35, -1]], np.float64)
     cv2.imshow("kernel", kernel)
+    
     for cnt in cnts:
         peri = cv2.arcLength(cnt, True)
         approx = cv2.approxPolyDP(cnt, 0.02*peri, True)
@@ -102,7 +103,7 @@ def detect(frame):
                                 [approx[0][0][0], approx[0][0][1]],
                                 [approx[11][0][0], approx[11][0][1]],
                                 [approx[5][0][0], approx[5][0][1]],
-                                [approx[6][0][0], approx[6][0][1]] ])
+                                [approx[6][0][0], approx[6][0][1]]])
             transformed = four_point_transform(thresh, edge_pts)
             cv2.imshow("Transformed Image", transformed)
 
@@ -122,15 +123,16 @@ def detect(frame):
                 print("H detectado!")
                 cv2.putText(frame, "Eh um H", (x,y), font, 1, (0, 255, 0))
                 cv2.drawContours(frame, [approx], 0, (0, 255, 0), 2)
+
+
 def main():
     cap = cv2.VideoCapture(0)
     ####################################################################
     while(True):
         # Capture frame-by-frame
         frame = cap.read()
-
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        detect(gray)
+        
+        detect(frame)
         # Display the resulting frame
         cv2.imshow('frame',frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):

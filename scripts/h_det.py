@@ -7,7 +7,6 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Vector3Stamped
 
-
 class ShapeDetector:
     def __init__(self):
         rospy.init_node("h_detector")
@@ -138,7 +137,7 @@ class ShapeDetector:
                     soma2 = parts2.sum()
                     parts3 = small_img*kernel3
                     soma3 = parts3.sum()
-                    
+
                     #print soma
                     if (soma>=1240 or soma2>=1240 or soma3>=1240 or soma4>=1240):
                         M = cv2.moments(cnt)
