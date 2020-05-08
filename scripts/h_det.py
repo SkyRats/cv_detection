@@ -6,7 +6,13 @@ import numpy as np
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Vector3Stamped
+from numba import jit, jitclass
+import numba as nb
+from time import time
 
+#spec = [('gray', nb.int32[:][:])]   # a simple scalar field
+
+#@jitclass(spec)
 class ShapeDetector:
     def __init__(self):
         rospy.init_node("h_detector")
@@ -16,15 +22,17 @@ class ShapeDetector:
         self.detection_pub = rospy.Publisher("/cv_detection/detection", Vector3Stamped, queue_size=1)
         self.bridge = CvBridge()
         self.gray = np.zeros((256, 256, 1), dtype = "uint8")
-        self.image_sub = rospy.Subscriber("/tello/image_raw", Image, self.image_callback) ## DEBUG change to tello
+        self.image_sub = rospy.Subscriber("/tello/camera/image_raw", Image, self.image_callback) ## DEBUG change to tello
         self.img_publisher = rospy.Publisher("/cv_detection/debug/image", Image, queue_size=1)
         self.small_img_publisher = rospy.Publisher("/cv_detection/debug/small_image", Image, queue_size=1)
 
-
+    #@jit
     def image_callback(self, image):
         try:
             self.gray = self.bridge.imgmsg_to_cv2(image, "mono8")
+            init_time = time()
             self.detect()
+            print("It took me {}s to run detection".format(time()-init_time))
 
         except CvBridgeError as e:
             print ("CvBridge Error: " + str(e))
@@ -81,7 +89,8 @@ class ShapeDetector:
         warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
         # return the warped image
         return warped
-
+    
+    #@jit(nopython=True)
     def detect(self):
         # Capture frame-by-frame
             blur1 = cv2.GaussianBlur(self.gray, (9,9), 0)
