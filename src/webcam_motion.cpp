@@ -14,8 +14,8 @@ class MotionDetecter {
         bool primeira = true;
         Scalar sum;
         Mat old_gray, new_gray, cv_frame;
-        void image_treat(Mat subtracted_frame);
-        void bounding_recs(Mat treated_image);
+        void image_treat();
+        void bounding_recs();
     public:
         bool detect(Mat new_image); // ver se é a primera, se for a primeira retornar false
 }
@@ -50,7 +50,7 @@ void MotionDetecter::image_treat() {
     this->cv_frame = subtracted_frame;
 }
 
-void MotionDetecter::bounding_recs(Mat)    {
+void MotionDetecter::bounding_recs()    {
     // Usar o this->cv_frame
     // Retorno por imagem
     // retornar soma no atributo this->sum
@@ -124,7 +124,7 @@ int main() {
     Mat frame;
     VideoCapture video(-1); // captures video from default cam
 
-    MotionDetecter detecter = new MotionDetecter;
+    MotionDetecter *detecter = new MotionDetecter;
     while (true) {
         video >> frame;
         detecter.detect(frame);
