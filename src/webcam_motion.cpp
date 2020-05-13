@@ -1,66 +1,88 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
+#include <list>
 
-#define MIN_PIX_VALUE 45
+#define MIN_PIX_VALUE 40
 #define MOTION_THRESHOLD 2000 // no quarto do @pedro-fuoco, com todas as luzes acesas
 #define DEBUG true
 #define DILATION_SIZE 7
-
+using namespace std;
 using namespace cv;
 
 
 class MotionDetecter {
     private:
-        bool primeira = true;
-        Scalar sum;
+        bool primeira;
+        int total_sum;
         Mat old_gray, new_gray, cv_frame;
         void image_treat();
         void bounding_recs();
+        bool is_relevant(vector<Point> rect);
     public:
+        MotionDetecter();
         bool detect(Mat new_image); // ver se é a primera, se for a primeira retornar false
-}
+        vector<Rect> relevant_rectangles;
+};
+
+MotionDetecter::MotionDetecter(){
+    this->primeira = true;
+};
 
 bool MotionDetecter::detect(Mat new_image) {
     if (this->primeira == true) {
         cvtColor(new_image, this->old_gray, CV_RGB2GRAY);
+        this->primeira = false;
         return false;
     }
     else {
         cvtColor(new_image, this->new_gray, CV_RGB2GRAY);
-        this->image_treat();
-        this->bounding_recs();
-
-        if(this->sum != 0) {
+        image_treat();
+        bounding_recs();
+        if(this->total_sum != 0) {
             if (DEBUG) {
-                rectangle(this->new_gray, boundingRect(cv_frame), Scalar(0,255,0),3,8,0);
-                putText(this->new_gray, "movement detected", Point(275,25),  FONT_HERSHEY_SIMPLEX, 1, Scalar(0,255,0), 3, 8, false);
-                imshow("Display", this->new_gray);
+                for(int i = 0; i < relevant_rectangles.size(); i++){
+                    rectangle(new_image, relevant_rectangles[i], Scalar(0,255,0),3,8,0);
+                }
+                putText(new_image, "movement detected", Point(275,25),  FONT_HERSHEY_SIMPLEX, 1, Scalar(0,255,0), 3, 8, false);
+                imshow("Display", new_image);
             }
-            return true;
+            //return true;
         }
-        // todo o resto
     }
-}
+};
+
+
+bool MotionDetecter::is_relevant(vector<Point> rect) {
+    if(contourArea(rect) > 1000){ //precisamos definir como veremos a area minima
+        return true;
+    }
+};
 
 void MotionDetecter::image_treat() {
-    Mat subtracted_frame = this->new_gray - this->old_gray;
+    Mat subtracted_frame = this->old_gray - this->new_gray;
     threshold(subtracted_frame, subtracted_frame, MIN_PIX_VALUE , 255 , 0 );
     dilate(subtracted_frame, subtracted_frame, getStructuringElement(MORPH_RECT, Size(1.25*DILATION_SIZE,1.25*DILATION_SIZE), Point(DILATION_SIZE, DILATION_SIZE)));
     Canny(subtracted_frame, subtracted_frame, 75, 225, 3);
     this->cv_frame = subtracted_frame;
-}
+    imshow("tratado", this->cv_frame);
+};
 
-void MotionDetecter::bounding_recs()    {
-    // Usar o this->cv_frame
-    // Retorno por imagem
-    // retornar soma no atributo this->sum
-
-
-
-
-
-    // Todo retorno vetor
-}
+void MotionDetecter::bounding_recs() {
+    relevant_rectangles.clear();
+    vector<vector<Point>> stored_contours;
+    vector<Point> poly;
+    findContours(this->cv_frame, stored_contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE); 
+    // aqui achamos os contornos que existem na imagem, eles são armazenados em stored_contours
+    this->total_sum = 0;
+    // existe um possível bug que o findContours detecta os cantos da tela, pode ser resolvido com int i = 1
+    for(int i = 0; i < stored_contours.size(); i++){ 
+        approxPolyDP(stored_contours[i], poly, 20, true); //transforma o contorno detectado em um poligono poly
+        if (is_relevant(poly)){
+            this->relevant_rectangles.push_back(boundingRect(poly)); //envia o rect relevante para a lista
+            this->total_sum += sum(sum(poly))[0];
+        }
+    }
+};
 
 
 
@@ -124,10 +146,10 @@ int main() {
     Mat frame;
     VideoCapture video(-1); // captures video from default cam
 
-    MotionDetecter *detecter = new MotionDetecter;
+    MotionDetecter* detecter = new MotionDetecter;
     while (true) {
         video >> frame;
-        detecter.detect(frame);
+        detecter->detect(frame);
         waitKey(30);
     }   
 }
