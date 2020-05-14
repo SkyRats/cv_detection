@@ -75,6 +75,8 @@ Mat detect (Mat frame)
 
             Mat small_img;
             resize(transformed, small_img, Size(3,3), (0,0), (0,0), INTER_AREA);
+
+            small_img.convertTo(small_img, CV_32FC2);
             
             for(int i = 0; i < 4; i++){
                 float soma = sum( (small_img)*(kernels[i]) ) [0];
