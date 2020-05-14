@@ -4,10 +4,11 @@ using namespace std;
 using namespace cv;
 
 #define vp vector<Point>
+#define vpf vector<Point2f>
 
 /* Prototipos das funcoes nas outras branches */
-vp order_points(vp pts);
-Mat four_points_transform(Mat image, vp pts);
+vpf order_points(vpf pts);
+Mat four_points_transform(Mat image, vpf pts);
 
 Mat detect (Mat frame)
 {
@@ -24,28 +25,28 @@ Mat detect (Mat frame)
 
     /* Usei cv::Mat porque já tem multiplicação de matrizes definida */
     Mat kernels[4];
-    kernels[0] = (Mat_<double>(3,3) << 
+    kernels[0] = (Mat_<float>(3,3) << 
     -1, 3.5, -1 ,
     -1, -1, -1 ,
     -1, 3.5, -1
     );
-    kernels[1] = (Mat_<double>(3,3) <<
+    kernels[1] = (Mat_<float>(3,3) <<
     5, -0.35, -1 ,
     -0.35, -1, -1 ,
     -1, -1, 5
     );
-    kernels[2] = (Mat_<double>(3,3) << 
+    kernels[2] = (Mat_<float>(3,3) << 
     -1, -1, -1 ,
     5, -1, 5 ,
     -1, -1, -1
     );
-    kernels[3] = (Mat_<double>(3,3) << 
+    kernels[3] = (Mat_<float>(3,3) << 
     -0.35, -1, 5 ,
     -1, -1, -1 ,
     5, -0.35, -1
     );
 
-    for(auto cnt : contour)
+    for(vp cnt : contour)
     {
         int peri = arcLength(cnt, true);
         vp approx;
@@ -53,22 +54,22 @@ Mat detect (Mat frame)
         if (approx.size() == 12)
         {
             polylines(frame2, approx, true, Scalar(0,255,0), 5, 8, 0);
-            imshow("", frame2);
+            imshow("frame", frame2);
 
             /* Desnecessário sem debugging
-            Mat box = (Mat_<double>(3,3) <<
+            Mat box = (Mat_<float>(3,3) <<
             0,0 ,
             frame.rows, 0 ,
             frame.rows, frame.cols ,
             0, frame.cols
             );
             */
-            Mat edge_pts = (Mat_<double>(3,3) <<
-            approx[0].x, approx[0].y ,
-            approx[11].x, approx[11].y , 
-            approx[5].x, approx[5].y ,
-            approx[6].x, approx[6].y
-            );
+            vpf edge_pts = {
+            Point2f (approx[0].x, approx[0].y) ,
+            Point2f (approx[11].x, approx[11].y) , 
+            Point2f (approx[5].x, approx[5].y ),
+            Point2f (approx[6].x, approx[6].y)
+            };
 
             Mat transformed = four_points_transform(frame, edge_pts);
 
@@ -76,13 +77,13 @@ Mat detect (Mat frame)
             resize(transformed, small_img, Size(3,3), (0,0), (0,0), INTER_AREA);
             
             for(int i = 0; i < 4; i++){
-                double soma = sum(small_img*kernels[i]) [0];
+                float soma = sum( (small_img)*(kernels[i]) ) [0];
                 if(soma >= 1240){
-                    printf("H detectado");
+                    cout << "H detectado" << endl;
                     /* cv::putText(frame, "Eh um H", ); <<-- COMPLETAR 
                     Alem disso, aqui deve ser frame ou frame2 ?
                     drawContours(frame, approx, 0, (0,255,0), 2); */ 
-                }
+                }else cout << endl;
             }
         }
     }
