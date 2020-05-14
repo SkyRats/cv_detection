@@ -66,7 +66,7 @@ Mat four_points_transform(Mat image, vpf pts){
         0.0, maxHeight);
     */
 
-    vp dst = {
+    vpf dst = {
         Point2f(0.0, 0.0) ,
         Point2f(maxWidth, 0.0) ,
         Point2f(maxWidth, maxHeight) ,
