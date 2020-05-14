@@ -64,7 +64,7 @@ int main(){
     while(waitKey(30) != 27){
         feed >> frame;
 
-        vp pts { Point2f(0.0,0.0), Point2f(0.0,50.0), Point2f(50.0,50.0), Point2f(50.0,0.0) };
+        vpf pts { Point2f(0.0,0.0), Point2f(0.0,50.0), Point2f(50.0,50.0), Point2f(50.0,0.0) };
 
         imshow("Transform", four_points_transform(frame, pts));
     }
