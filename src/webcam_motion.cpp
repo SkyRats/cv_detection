@@ -2,7 +2,7 @@
 #include <opencv2/opencv.hpp>
 #include <list>
 
-#define MIN_PIX_VALUE 40
+#define MIN_PIX_VALUE 50
 #define MOTION_THRESHOLD 2000 // no quarto do @pedro-fuoco, com todas as luzes acesas
 #define DEBUG true
 #define DILATION_SIZE 7
@@ -108,38 +108,6 @@ void MotionDetecter::bounding_recs() {
             std::cout << "MOVING\n";
             rectangle(frame1, movarea, Scalar(255, 0, 0), 2);
         }else std::cout << std::endl;   */
-
-/*
-int main()  {
-    Mat old_frame,old_frame_gray, current_frame,current_frame_gray, cv_frame;
-    
-    
-    
-    cvtColor(current_frame, current_frame_gray, CV_RGB2GRAY);
-    
-    while(true) {
-        video >> old_frame; // Stores current video frame
-
-        cvtColor(old_frame, old_frame_gray, CV_RGB2GRAY);           // Converts from
-        cvtColor(current_frame, current_frame_gray, CV_RGB2GRAY);   // BGR to Gray
-
-        cv_frame = image_treat(current_frame_gray - old_frame_gray);
-
-        Scalar t = sum(cv_frame);
-
-
-        if(t[0] > MOTION_THRESHOLD) {
-            rectangle(current_frame, boundingRect(cv_frame), Scalar(0,255,0),3,8,0);
-            putText(current_frame, "movement detected", Point(275,25),  FONT_HERSHEY_SIMPLEX, 1, Scalar(0,255,0), 3, 8, false);
-        }
-        
-        if (DEBUG) imshow("Display", current_frame);
-        waitKey(30);
-        video >> current_frame;
-
-    }
-}
-*/
 
 
 int main() {
