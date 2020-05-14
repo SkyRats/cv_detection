@@ -14,28 +14,27 @@ Mat four_points_transform(Mat image, vpf pts);
 Mat detect(Mat frame);
 
 struct comparison {
-    bool operator() (Point2f pt1, Point2f pt2) { return (pt1.x < pt2.x);}
+    bool operator() (Point2f pt1, Point2f pt2) { return (pt1.y > pt2.y);}
 } comparing;
 
 vpf order_points(vpf pts){
 
     sort(pts.begin(), pts.end(), comparing);
-    Point2f bl;
+    Point2f p1, p2;
 
-    if( pts[0].y > pts[1].y ){
-        bl = pts[1];
-    }else{
-        bl = pts[0];
-        pts[0] = pts[1];
+    if(pts[0].x > pts[1].x ){
+        p1 = pts[1];
+        pts[1] = pts[0];
+        pts[0] = p1;
     }
-    
-    if(pts[2].y < pts[3].y){
-        pts[1] = pts[3];
-    }else{
-        pts[1] = pts[2];
-        pts[2] = pts[3];
+
+    if(pts[2].x < pts[3].x){
+        p2 = pts[3];
+        pts[3] = pts[2];
+        pts[2] = p2;
     }
-    pts[3] = bl;
+
+    cout << pts << endl;
 
     return pts;
 }
