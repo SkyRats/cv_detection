@@ -10,7 +10,7 @@ using namespace std;
 using namespace cv;
 
 
-class MotionDetecter {
+class MotionDetector {
     private:
         bool primeira;
         int total_sum;
@@ -19,16 +19,16 @@ class MotionDetecter {
         void bounding_recs();
         bool is_relevant(vector<Point> rect);
     public:
-        MotionDetecter();
+        MotionDetector();
         bool detect(Mat new_image); // ver se é a primera, se for a primeira retornar false
         vector<Rect> relevant_rectangles;
 };
 
-MotionDetecter::MotionDetecter(){
+MotionDetector::MotionDetector(){
     this->primeira = true;
 };
 
-bool MotionDetecter::detect(Mat new_image) {
+bool MotionDetector::detect(Mat new_image) {
     if (this->primeira == true) {
         cvtColor(new_image, this->old_gray, CV_RGB2GRAY);
         this->primeira = false;
@@ -52,13 +52,13 @@ bool MotionDetecter::detect(Mat new_image) {
 };
 
 
-bool MotionDetecter::is_relevant(vector<Point> rect) {
+bool MotionDetector::is_relevant(vector<Point> rect) {
     if(contourArea(rect) > 1000){ //precisamos definir como veremos a area minima
         return true;
     }
 };
 
-void MotionDetecter::image_treat() {
+void MotionDetector::image_treat() {
     Mat subtracted_frame = this->old_gray - this->new_gray;
     threshold(subtracted_frame, subtracted_frame, MIN_PIX_VALUE , 255 , 0 );
     dilate(subtracted_frame, subtracted_frame, getStructuringElement(MORPH_RECT, Size(1.25*DILATION_SIZE,1.25*DILATION_SIZE), Point(DILATION_SIZE, DILATION_SIZE)));
@@ -67,7 +67,7 @@ void MotionDetecter::image_treat() {
     imshow("tratado", this->cv_frame);
 };
 
-void MotionDetecter::bounding_recs() {
+void MotionDetector::bounding_recs() {
     relevant_rectangles.clear();
     vector<vector<Point>> stored_contours;
     vector<Point> poly;
@@ -114,7 +114,7 @@ int main() {
     Mat frame;
     VideoCapture video(-1); // captures video from default cam
 
-    MotionDetecter* detecter = new MotionDetecter;
+    MotionDetector* detecter = new MotionDetector;
     while (true) {
         video >> frame;
         detecter->detect(frame);
