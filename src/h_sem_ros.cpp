@@ -8,7 +8,7 @@ using namespace cv;
 #define vp vector<Point>
 #define vpf vector<Point2f>
 
-#define DEBUG false
+#define DEBUG true
 
 // Prototipos das funcoes nas outras branches
 vpf order_points(vpf pts);
@@ -37,7 +37,7 @@ vpf order_points(vpf pts){
         pts[2] = p2;
     }
 
-    if(DEBUG) cout << pts << endl;
+    //if(DEBUG) cout << pts << endl;
 
     return pts;
 }
@@ -75,7 +75,7 @@ Mat four_points_transform(Mat *image, vpf pts){
     Mat warped;
     warpPerspective(*image, warped, M, Size(maxWidth, maxHeight));
     *image = warped;
-    if(DEBUG) imshow("warped", warped); // @caio-freitas ver a imagem cropada tbm é útil pra debugar
+    //if(DEBUG) imshow("warped", warped); // @caio-freitas ver a imagem cropada tbm é útil pra debugar
     return M;
 
 }
@@ -135,6 +135,8 @@ Mat detect (Mat frame)
         if (approx.size() == 12)
         {
 
+            if(DEBUG) polylines(frame2, approx, true, Scalar(0,255,0), 5, 8, 0);
+
             Rect bounds = boundingRect(approx);
 
             vpf edge_pts = {
@@ -145,6 +147,7 @@ Mat detect (Mat frame)
             };
 
             Mat perspective = four_points_transform(&frame, edge_pts);
+            if(DEBUG) imshow("warped", frame);
 
             vpf h_approx;
             approxPolyDP(approx, h_approx, 0.02*peri, true);
@@ -164,13 +167,55 @@ Mat detect (Mat frame)
                 circle(frame2, h_approx[11], 3, (255,0,0), 3 );
                 imshow("Circles", frame2);
             }
-
-            imshow("frame", frame2);
             
-            if (scalar_product_check(h_approx)){
-                //polylines(frame2, approx, true, Scalar(0,255,0), 5, 8, 0); <<-- Da core dump
-                cout << "H detectado" << endl;
+            if (scalar_product_check(h_approx)) {
+
+                Mat kernels[4];
+                kernels[0] = (Mat_<float>(3,3) << 
+                -1, 3.5, -1 ,
+                -1, -1, -1 ,
+                -1, 3.5, -1
+                );
+                kernels[1] = (Mat_<float>(3,3) <<
+                5, -0.35, -1 ,
+                -0.35, -1, -1 ,
+                -1, -1, 5
+                );
+                kernels[2] = (Mat_<float>(3,3) << 
+                -1, -1, -1 ,
+                5, -1, 5 ,
+                -1, -1, -1
+                );
+                kernels[3] = (Mat_<float>(3,3) << 
+                -0.35, -1, 5 ,
+                -1, -1, -1 ,
+                5, -0.35, -1
+                );
+
+                Mat small_img;
+                resize(frame, small_img, Size(3,3), /*(0,0), (0,0),*/ INTER_CUBIC);
+                small_img.convertTo(small_img, CV_32FC2);
+
+
+                //polylines(frame2, approx, true, Scalar(0,255,0), 5, 8, 0); <<-- Da core dump                
+                if(DEBUG){ 
+                    Mat big_small_img;
+                    resize(small_img, big_small_img, Size(300,300));
+                    imshow("small_img", big_small_img);
+                }
+
+                for(int i = 0; i < 4; i++){
+                    float soma = sum( (small_img)*(kernels[i]) ) [0];
+                    if(soma >= 1240.0){
+                        cout << "H detectado : \t" << soma << endl;
+                        /* cv::putText(frame, "Eh um H", ); <<-- COMPLETAR 
+                        Alem disso, aqui deve ser frame ou frame2 ?
+                        drawContours(frame, approx, 0, (0,255,0), 2); */ 
+                    }
+                    soma = 0.0;
+                }
             }else cout << endl;
+            
         }
     }
     /* frame (processado) ou frame2 (original)? */
