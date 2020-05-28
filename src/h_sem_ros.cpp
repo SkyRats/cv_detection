@@ -12,9 +12,9 @@ using namespace cv;
 
 #define DEBUG true
 
-// Prototipos das funcoes nas outras branches
+// Prototipos das funcoes
 vpf order_points(vpf pts);
-Mat four_points_transform(Mat *image, vpf pts);
+void four_points_transform(Mat *image, vpf pts);
 Mat detect(Mat frame);
 float dot_product_angle(Point2f p1, Point2f p2);
 bool scalar_product_check(vpf pts);
@@ -46,7 +46,7 @@ vpf order_points(vpf pts){
     return pts;
 }
 
-Mat four_points_transform(Mat *image, vpf pts){
+void four_points_transform(Mat *image, vpf pts){
 
     vpf rect = order_points(pts);
 
@@ -129,10 +129,8 @@ bool scalar_product_check(vpf pts){
     return true;
 }
 
-Mat detect (Mat frame)
-{
-    /* Acho que deveriamos renomear frame2 para original
-    e frame para processed ou alguma coisa assim */
+Mat detect (Mat frame){
+
     Mat frame2 = frame;
     cvtColor(frame, frame, CV_RGB2GRAY);
     GaussianBlur(frame, frame, Size(9,9), 0);
@@ -161,7 +159,7 @@ Mat detect (Mat frame)
             float a2 = dot_product_angle(approx[1] - approx[2], Point2f(0,1) );
 
             if( a1 < 0.1 || a2 < 0.1
-               || abs(a1 - PI) < 0.1 || abs(a1 - PI) < 0.1 )
+               || abs(a1 - PI) < 0.1 || abs(a1 - PI) < 0.1 ){
                 
                 edge_pts = {
                     Point2f (bounds.x, bounds.y) ,
@@ -184,13 +182,14 @@ Mat detect (Mat frame)
 
                 }
 
-            Mat perspective = four_points_transform(&frame, edge_pts);
-            if(DEBUG) imshow("warped", frame);
+            }
 
-            vpf h_approx;
-            approxPolyDP(approx, h_approx, 0.02*peri, true);
+            four_points_transform(&frame, edge_pts);
+            
+            if(DEBUG){
 
-             if(DEBUG){
+                imshow("warped", frame);
+
                 circle(frame2, edge_pts[0], 3, (255,0,0), 3 );
                 circle(frame2, edge_pts[1], 3, (255,0,0), 3 );
                 circle(frame2, edge_pts[2], 3, (255,0,0), 3 );                
@@ -206,30 +205,16 @@ Mat detect (Mat frame)
             
             if (scalar_product_check(approx)) {
 
-                Mat kernels[4];
-                kernels[0] = (Mat_<float>(3,3) << 
-                -1, 3.5, -1 ,
-                -1, -1, -1 ,
-                -1, 3.5, -1
+                Mat kernels[2];
+                kernels[0] = (Mat_<float>(12,1) <<
+                1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1 
                 );
-                kernels[1] = (Mat_<float>(3,3) <<
-                5, -0.35, -1 ,
-                -0.35, -1, -1 ,
-                -1, -1, 5
-                );
-                kernels[2] = (Mat_<float>(3,3) << 
-                -1, -1, -1 ,
-                5, -1, 5 ,
-                -1, -1, -1
-                );
-                kernels[3] = (Mat_<float>(3,3) << 
-                -0.35, -1, 5 ,
-                -1, -1, -1 ,
-                5, -0.35, -1
+                kernels[1] = (Mat_<float>(12,1) <<
+                0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0
                 );
 
                 Mat small_img;
-                resize(frame, small_img, Size(3,3), /*(0,0), (0,0),*/ INTER_CUBIC);
+                resize(frame, small_img, Size(12,12), INTER_AREA);
                 small_img.convertTo(small_img, CV_32FC2);
 
 
@@ -243,22 +228,27 @@ Mat detect (Mat frame)
                     imshow("small_img", big_small_img);
                 }
 
-                for(int i = 0; i < 4; i++){
-                    float soma = sum( (small_img)*(kernels[i]) ) [0];
-                    if(soma >= 1240.0){
-                        cout << "H detectado : \t" << soma << endl;
-                        /* cv::putText(frame, "Eh um H", ); <<-- COMPLETAR 
-                        Alem disso, aqui deve ser frame ou frame2 ?
-                        drawContours(frame, approx, 0, (0,255,0), 2); */ 
-                    }
-                    soma = 0.0;
-                }
+                int sides = sum( (small_img)*(kernels[0]) ) [0];
+                int middle = sum( (small_img)*(kernels[1]) ) [0];
+
+                int exp_sides[2] = {2*(255*12*4), 4*(255*4*4)};
+                int exp_middle[2] = {255*4*4, 255*12*4};
+
+                //Precisam ser melhor ajustados
+                float HIGH_THRESH = 0.9;
+                float LOW_THRESH = 1.2;
+
+                if( (sides >= exp_sides[0]*HIGH_THRESH && middle <= exp_middle[0]*LOW_THRESH) 
+                || (sides <= exp_sides[1]*LOW_THRESH && middle >= exp_middle[1]*HIGH_THRESH) ){
+                    cout << "H detectado"<< endl;                    
+                }else cout << endl;
+                
+
             }else cout << endl;
             
         }
     }
-    /* frame (processado) ou frame2 (original)? */
-    return frame;
+    return frame2;
 }
 
 int main()
