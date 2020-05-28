@@ -14,7 +14,9 @@ using namespace cv;
 vpf order_points(vpf pts);
 Mat four_points_transform(Mat *image, vpf pts);
 Mat detect(Mat frame);
+float dot_product_angle(Point2f p1, Point2f p2);
 bool scalar_product_check(vpf pts);
+
 
 struct comparison {
     bool operator() (Point2f pt1, Point2f pt2) { return (pt1.y > pt2.y);}
@@ -79,6 +81,18 @@ Mat four_points_transform(Mat *image, vpf pts){
     return M;
 
 }
+
+float dot_product_angle(Point2f p1, Point2f p2){
+    
+    float Vlenght1, Vlenght2; //modulo dos vetores
+    // a primeira vez é diferente das outras e precisa ser feita manualmente
+    
+    Vlenght1 = sqrt((p1.x)*(p1.x) + (p1.y)*(p1.y));
+    Vlenght2 = sqrt((p2.x)*(p2.x) + (p2.y)*(p2.y));
+    float a = ((p1.x)*(p2.x) + (p1.y)*(p2.y))/(Vlenght1*Vlenght2);
+
+    return acos(a);
+    }
 
 
 bool scalar_product_check(vpf pts){
