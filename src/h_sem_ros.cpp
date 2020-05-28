@@ -143,22 +143,44 @@ Mat detect (Mat frame)
     for(vp cnt : contour)
     {
         int peri = arcLength(cnt, true);
-        vp approx;
+        vpf approx;
         approxPolyDP(cnt, approx, 0.02*peri, true);
         
         if (approx.size() == 12)
         {
 
-            if(DEBUG) polylines(frame2, approx, true, Scalar(0,255,0), 5, 8, 0);
+            //if(DEBUG) polylines(frame2, approx, true, Scalar(0,255,0), 5, 8, 0);
 
-            Rect bounds = boundingRect(approx);
+            Rect2f bounds = boundingRect(approx);
 
-            vpf edge_pts = {
-                Point2f (bounds.x, bounds.y) ,
-                Point2f (bounds.x + bounds.width, bounds.y) , 
-                Point2f (bounds.x, bounds.y + bounds.height) ,
-                Point2f (bounds.x + bounds.width, bounds.y + bounds.height)
-            };
+            vpf edge_pts = {Point2f(0,0), Point2f(0,0), Point2f(0,0), Point2f(0,0)};
+            
+            float a1 = dot_product_angle(approx[0] - approx[1], Point2f(0,1) );
+            float a2 = dot_product_angle(approx[1] - approx[2], Point2f(0,1) );
+
+            if( a1 < 0.1 || a2 < 0.1
+               || abs(a1 - PI) < 0.1 || abs(a1 - PI) < 0.1 )
+                
+                edge_pts = {
+                    Point2f (bounds.x, bounds.y) ,
+                    Point2f (bounds.x + bounds.width, bounds.y) , 
+                    Point2f (bounds.x + bounds.width, bounds.y) , 
+                    Point2f (bounds.x + bounds.width, bounds.y) , 
+                    Point2f (bounds.x, bounds.y + bounds.height) ,
+                    Point2f (bounds.x + bounds.width, bounds.y + bounds.height)
+                };
+            
+            else
+            
+                for(Point2f v : approx){
+
+                    if( abs(v.x - bounds.x) <= 1) edge_pts[0] = v;
+                    else if( abs(v.x - (bounds.x + bounds.width) ) <= 1) edge_pts[1] = v;
+
+                    else if( abs(v.y - bounds.y) <= 1) edge_pts[2] = v;
+                    else if( abs(v.y - (bounds.y + bounds.height) ) <= 1) edge_pts[3] = v;
+
+                }
 
             Mat perspective = four_points_transform(&frame, edge_pts);
             if(DEBUG) imshow("warped", frame);
@@ -182,7 +204,7 @@ Mat detect (Mat frame)
                 imshow("Circles", frame2);
             }
             
-            if (scalar_product_check(h_approx)) {
+            if (scalar_product_check(approx)) {
 
                 Mat kernels[4];
                 kernels[0] = (Mat_<float>(3,3) << 
