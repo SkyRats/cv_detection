@@ -5,6 +5,8 @@ using namespace cv;
 
 #define ANGLE_THRESH_MIN 1
 #define ANGLE_THRESH_MAX 2.2
+#define PI 3.14159
+
 #define vp vector<Point>
 #define vpf vector<Point2f>
 
@@ -189,19 +191,17 @@ Mat detect (Mat frame)
             approxPolyDP(approx, h_approx, 0.02*peri, true);
 
              if(DEBUG){
-                circle(frame2, h_approx[0], 3, (255,0,0), 3 );
-                circle(frame2, h_approx[1], 3, (255,0,0), 3 );
-                circle(frame2, h_approx[2], 3, (255,0,0), 3 );
-                circle(frame2, h_approx[3], 3, (255,0,0), 3 );
-                circle(frame2, h_approx[4], 3, (255,0,0), 3 );
-                circle(frame2, h_approx[5], 3, (255,0,0), 3 );
-                circle(frame2, h_approx[6], 3, (255,0,0), 3 );
-                circle(frame2, h_approx[7], 3, (255,0,0), 3 );
-                circle(frame2, h_approx[8], 3, (255,0,0), 3 );
-                circle(frame2, h_approx[9], 3, (255,0,0), 3 );
-                circle(frame2, h_approx[10], 3, (255,0,0), 3 );
-                circle(frame2, h_approx[11], 3, (255,0,0), 3 );
-                imshow("Circles", frame2);
+                circle(frame2, edge_pts[0], 3, (255,0,0), 3 );
+                circle(frame2, edge_pts[1], 3, (255,0,0), 3 );
+                circle(frame2, edge_pts[2], 3, (255,0,0), 3 );                
+                circle(frame2, edge_pts[3], 3, (255,0,0), 3 );
+
+                circle(frame2, approx[3], 3, (0,0,255), 3 );
+                circle(frame2, approx[4], 3, (0,0,255), 3 );
+                circle(frame2, approx[5], 3, (0,0,255), 3 );
+
+                rectangle(frame2, bounds, (0,255,0));
+                imshow("Lines", frame2);
             }
             
             if (scalar_product_check(approx)) {
@@ -235,6 +235,9 @@ Mat detect (Mat frame)
 
                 //polylines(frame2, approx, true, Scalar(0,255,0), 5, 8, 0); <<-- Da core dump                
                 if(DEBUG){ 
+
+                    //cout << small_img << endl;
+
                     Mat big_small_img;
                     resize(small_img, big_small_img, Size(300,300));
                     imshow("small_img", big_small_img);
