@@ -51,7 +51,6 @@ bool MotionDetector::detect(Mat new_image) {
     }
 };
 
-
 bool MotionDetector::is_relevant(vector<Point> rect) {
     if(contourArea(rect) > 1000){ //precisamos definir como veremos a area minima
         return true;

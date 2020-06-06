@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
 from sensor_msgs.msg import Image
@@ -16,7 +16,9 @@ class ShapeDetector:
         self.detection_pub = rospy.Publisher("/cv_detection/detection", Vector3Stamped, queue_size=1)
         self.bridge = CvBridge()
         self.gray = np.zeros((256, 256, 1), dtype = "uint8")
-        self.image_sub = rospy.Subscriber("/tello/image_raw", Image, self.image_callback) ## DEBUG change to tello
+        #self.image_sub = rospy.Subscriber("/tello/image_raw", Image, self.image_callback) ## DEBUG change to tello
+        self.image_sub = rospy.Subscriber("/iris_fpv_cam/usb_cam/image_raw", Image, self.image_callback)
+
         self.img_publisher = rospy.Publisher("/cv_detection/debug/image", Image, queue_size=1)
         self.small_img_publisher = rospy.Publisher("/cv_detection/debug/small_image", Image, queue_size=1)
 
@@ -25,7 +27,7 @@ class ShapeDetector:
         try:
             self.gray = self.bridge.imgmsg_to_cv2(image, "mono8")
             self.detect()
-
+            
         except CvBridgeError as e:
             print ("CvBridge Error: " + str(e))
 

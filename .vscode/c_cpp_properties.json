@@ -1,0 +1,32 @@
+{
+    "configurations": [
+        {
+            "browse": {
+                "databaseFilename": "",
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "/opt/ros/melodic/include/**",
+                "/home/caio/tello_ws/devel/include/**",
+                "/home/caio/tello_ws/src/srv_tools/bag_tools/include/**",
+                "/home/caio/tello_ws/src/fast/include/**",
+                "/home/caio/tello_ws/src/h264_image_transport/include/**",
+                "/home/caio/new_ws/src/newpack/include/**",
+                "/home/caio/tello_ws/src/robot_localization/include/**",
+                "/home/caio/tello_ws/src/rpg_svo/svo/include/**",
+                "/home/caio/tello_ws/src/rpg_svo/svo_ros/include/**",
+                "/home/caio/tello_ws/src/usb_cam/include/**",
+                "/home/caio/tello_ws/src/rpg_vikit/vikit_common/include/**",
+                "/home/caio/tello_ws/src/rpg_vikit/vikit_ros/include/**",
+                "/home/caio/tello_ws/src/viscon/include/**",
+                "/usr/include/**"
+            ],
+            "name": "ROS",
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++14"
+        }
+    ],
+    "version": 4
+}
