@@ -94,7 +94,7 @@ void HDetector::four_points_transform(Mat image){
 
 }
 
-/* Determines angle between vectors 'v1' and 'v2' using 'relative' as origin*/
+// Determines angle between vectors 'v1' and 'v2' using 'relative' as origin
 float HDetector::angle(Point2f v1, Point2f v2, Point2f relative){
     
     float Vlenght1, Vlenght2; // Length of v1 and v2
@@ -236,7 +236,7 @@ Mat HDetector::detect (Mat frame){
 
                 // As a greyscale image, the sum of its pixel values is in channel 0
                 int sides = sum( (small_img)*(sides_kernel) ) [0];
-                int middle = sum( (small_img)*(middl _kernel) ) [0];
+                int middle = sum( (small_img)*(middle_kernel) ) [0];
 
                 /*
                 Index 0 goes for vertical H and 1, for horizontal (only positions 
