@@ -3,7 +3,7 @@ using namespace std;
 #include <opencv2/opencv.hpp>
 using namespace cv;
 #include "ros/ros.h"
-#include "geometry_msgs/Twist.h"
+#include "std_msgs/String.h"
 
 #define ANGLE_THRESH_MIN 1
 #define ANGLE_THRESH_MAX 2.2
@@ -32,7 +32,7 @@ class HDetector {
     public:
         Mat warped; 
         HDetector();
-        Mat detect (Mat frame);
+        bool detect (Mat frame);
 
 };
 
@@ -130,7 +130,9 @@ bool HDetector::angle_check(vpf pts){
 }
 
 // Takes an image 'frame' and detects whether it contains the letter H
-Mat HDetector::detect (Mat frame){
+bool HDetector::detect (Mat frame){
+    bool detected = false;
+
     Mat frame2 = frame;
     cvtColor(frame, frame, CV_RGB2GRAY);
     // Blur and threshold remove noise from image
@@ -275,7 +277,8 @@ Mat HDetector::detect (Mat frame){
                 */
                 if( (sides >= ideal_sides[0]*KERNEL_THRESH_MIN && middle <= ideal_middle[0]*KERNEL_THRESH_MAX) 
                 || (sides <= ideal_sides[1]*KERNEL_THRESH_MAX && middle >= ideal_middle[1]*KERNEL_THRESH_MIN) ){
-                    cout << "H detectado"<< endl;                    
+                    cout << "H detectado"<< endl;
+                    detected = true;                    
                 }else cout << endl;
                 
 
@@ -283,22 +286,25 @@ Mat HDetector::detect (Mat frame){
             
         }
     }
-    return frame2;
+    return detected;
 }
 
 // For testing
 int main(int argc, char** arvg){
-    ros::init(argc,arvg,"h_node");
+    ros::init(argc, arvg, "h_node");
     ros::NodeHandle n;
-    ros::Publisher h_pub = n.advertise<geometry_msgs::Twist>("h_detection",0);
-    geometry_msgs::Twist msg;
-    msg.linear.x = 50;
+    ros::Publisher h_pub = n.advertise<std_msgs::String>("h_detection",0);
+    std_msgs::String msg;
     Mat frame;
     VideoCapture video(0);
     HDetector* detector = new HDetector();
     video >> frame;
     while (ros::ok()){
-        detector->detect(frame);
+        
+        if ( detector->detect(frame) )
+            msg.data = "H detected";
+        else msg.data = "\n";
+
         h_pub.publish(msg);
         if (waitKey(30) == 27) break;
         video >> frame;
