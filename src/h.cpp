@@ -3,8 +3,7 @@ using namespace std;
 #include <opencv2/opencv.hpp>
 using namespace cv;
 #include "ros/ros.h"
-#include "std_msgs/String.h"
-
+#include "geometry_msgs/Twist.h"
 
 #define ANGLE_THRESH_MIN 1
 #define ANGLE_THRESH_MAX 2.2
@@ -38,7 +37,6 @@ class HDetector {
 };
 
 HDetector::HDetector(){
-
 }
 
 /* Order points in edge_pts so that the first exit is the top-left, the second 
@@ -290,15 +288,16 @@ Mat HDetector::detect (Mat frame){
 
 // For testing
 int main(int argc, char** arvg){
-    ros::init(argc,arvg, "h_node");
+    ros::init(argc,arvg,"h_node");
     ros::NodeHandle n;
-    ros::Publisher h_pub = n.advertise<std_msgs::String>("h_node/detection",0);
-    std_msgs::String msg;
+    ros::Publisher h_pub = n.advertise<geometry_msgs::Twist>("h_detection",0);
+    geometry_msgs::Twist msg;
+    msg.linear.x = 50;
     Mat frame;
     VideoCapture video(0);
     HDetector* detector = new HDetector();
     video >> frame;
-    while (true){
+    while (ros::ok()){
         detector->detect(frame);
         h_pub.publish(msg);
         if (waitKey(30) == 27) break;

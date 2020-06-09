@@ -12,7 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
 )
-
+find_package(OpenCV 3 REQUIRED)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -149,7 +149,7 @@ add_executable (h_node src/h.cpp)
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
-target_link_libraries(h_node ${catkin_LIBRARIES},${OpenCV_LIBS})
+target_link_libraries(h_node ${catkin_LIBRARIES} ${OpenCV_LIBS})
 #############
 ## Install ##
 #############
