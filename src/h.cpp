@@ -3,7 +3,8 @@ using namespace std;
 #include <opencv2/opencv.hpp>
 using namespace cv;
 #include "ros/ros.h"
-#include "std_msgs/String.h"
+
+#include "cv_detection/H_info.h"
 
 #define ANGLE_THRESH_MIN 1
 #define ANGLE_THRESH_MAX 2.2
@@ -293,8 +294,8 @@ bool HDetector::detect (Mat frame){
 int main(int argc, char** arvg){
     ros::init(argc, arvg, "h_node");
     ros::NodeHandle n;
-    ros::Publisher h_pub = n.advertise<std_msgs::String>("h_detection",0);
-    std_msgs::String msg;
+    ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection",0);
+    cv_detection::H_info msg;
     Mat frame;
     VideoCapture video(0);
     HDetector* detector = new HDetector();
@@ -303,7 +304,7 @@ int main(int argc, char** arvg){
         
         if ( detector->detect(frame) )
             msg.data = "H detected";
-        else msg.data = "\n";
+        else msg.data = " ";
 
         h_pub.publish(msg);
         if (waitKey(30) == 27) break;
