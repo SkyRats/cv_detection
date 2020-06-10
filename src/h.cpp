@@ -2,6 +2,8 @@
 using namespace std;
 #include <opencv2/opencv.hpp>
 using namespace cv;
+#include "ros/ros.h"
+#include "cv_detection/H_info.h"
 
 #define ANGLE_THRESH_MIN 1
 #define ANGLE_THRESH_MAX 2.2
@@ -22,7 +24,9 @@ struct comparison {
 
 class HDetector {
     private:
-        vpf edge_pts = { Point2f(0,0), Point2f(0,0), Point2f(0,0), Point2f(0,0) };
+        vpf edge_pts = { Point2f(0,0), Point2f(0,0), Point2f(0,0), Point2f(0,0)};
+        Rect bounds;
+        float area_ratio;
         void order_points();
         void four_points_transform(Mat image);
         float angle(Point2f v1, Point2f v2, Point2f relative = Point2f(0,0) );
@@ -30,11 +34,16 @@ class HDetector {
     public:
         Mat warped; 
         HDetector();
-        Mat detect (Mat frame);
+        bool detect (Mat frame);
+        float getArea();
+        void setArea(vp contour, Mat frame);
+        int getCenter_X();
+        int getCenter_Y();
 
 };
 
-HDetector::HDetector() {}
+HDetector::HDetector(){
+}
 
 /* Order points in edge_pts so that the first exit is the top-left, the second 
 top-right, the third bottom-right, and the fourth bottom-left */   
@@ -126,9 +135,28 @@ bool HDetector::angle_check(vpf pts){
 
 }
 
+float HDetector::getArea(){
+    return this->area_ratio;
+}
+
+void HDetector::setArea(vp contour, Mat frame){
+    this->area_ratio = contourArea(contour, false)/(frame.cols*frame.rows);
+}
+
+int HDetector::getCenter_X(){
+    return (this->bounds.x + this->bounds.width/2);
+}
+
+int HDetector::getCenter_Y(){
+    return (this->bounds.y + this->bounds.height/2);
+}
+
 // Takes an image 'frame' and detects whether it contains the letter H
-Mat HDetector::detect (Mat frame){
+bool HDetector::detect (Mat frame){
+    bool detected = false;
+
     Mat frame2 = frame;
+
     cvtColor(frame, frame, CV_RGB2GRAY);
     // Blur and threshold remove noise from image
     GaussianBlur(frame, frame, Size(9,9), 0);
@@ -146,7 +174,7 @@ Mat HDetector::detect (Mat frame){
         
         if (approx.size() == 12){
 
-            Rect2f bounds = boundingRect(approx);
+            this->bounds = boundingRect(approx); // Precisa ser Rect2f?
             
             float a1 = angle(approx[0] - approx[1], Point2f(0,1) );
             float a2 = angle(approx[1] - approx[2], Point2f(0,1) );
@@ -186,6 +214,16 @@ Mat HDetector::detect (Mat frame){
             four_points_transform(frame);
             
             if(DEBUG){
+
+                float cx = 0, cy = 0;
+
+                for(Point2f point : edge_pts){
+                    cx += point.x;
+                    cy += point.y;
+                }
+                cx /= 4.0;
+                cy /= 4.0;
+                
                 imshow("warped", frame);
 
                 // Shows captures edge of H in black
@@ -195,6 +233,9 @@ Mat HDetector::detect (Mat frame){
                 circle(frame2, edge_pts[3], 3, (255,0,0), 3 );
                 // Draws bound
                 rectangle(frame2, bounds, (0,255,0));
+                //Shows H center
+                circle(frame2, Point2f(this->bounds.x + this->bounds.width/2, this->bounds.y + this->bounds.height/2), 3, (0, 0, 255), 3 );
+                
                 imshow("Lines", frame2);
             }
             
@@ -272,7 +313,9 @@ Mat HDetector::detect (Mat frame){
                 */
                 if( (sides >= ideal_sides[0]*KERNEL_THRESH_MIN && middle <= ideal_middle[0]*KERNEL_THRESH_MAX) 
                 || (sides <= ideal_sides[1]*KERNEL_THRESH_MAX && middle >= ideal_middle[1]*KERNEL_THRESH_MIN) ){
-                    cout << "H detectado"<< endl;                    
+                    cout << "H detectado"<< endl;
+                    detected = true;
+                    HDetector::setArea(cnt,frame2);               
                 }else cout << endl;
                 
 
@@ -280,17 +323,39 @@ Mat HDetector::detect (Mat frame){
             
         }
     }
-    return frame2;
+    return detected;
 }
 
 // For testing
-int main(){
+int main(int argc, char** arvg){
+    ros::init(argc, arvg, "h_node");
+    ros::NodeHandle n;
+    ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection",0);
+    cv_detection::H_info msg;
     Mat frame;
+    
+    //getCenter_X()
+    //getCenter_Y()
+
     VideoCapture video(0);
     HDetector* detector = new HDetector();
     video >> frame;
-    while (true){
-        imshow("display", detector->detect(frame));
+    while (ros::ok()){
+        if ( detector->detect(frame) ){
+            msg.detected = true;
+            msg.center_x = detector->getCenter_X();
+            msg.center_y = detector->getCenter_Y();
+            // msg.side_diff
+            msg.area_ratio = detector->getArea();
+        }
+        else{
+            msg.detected = false;
+            msg.center_x = -1;
+            msg.center_y = -1;
+            msg.side_diff = 0;
+            msg.area_ratio = -1;
+        }
+        h_pub.publish(msg);
         if (waitKey(30) == 27) break;
         video >> frame;
     }
