@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-
+ 
 import rospy
 from sensor_msgs.msg import Image
 import numpy as np
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Vector3Stamped
+from std_msgs.msg import Bool
 
 class ShapeDetector:
     def __init__(self):
@@ -16,20 +17,27 @@ class ShapeDetector:
         self.detection_pub = rospy.Publisher("/cv_detection/detection", Vector3Stamped, queue_size=1)
         self.bridge = CvBridge()
         self.gray = np.zeros((256, 256, 1), dtype = "uint8")
-        #self.image_sub = rospy.Subscriber("/tello/image_raw", Image, self.image_callback) ## DEBUG change to tello
-        self.image_sub = rospy.Subscriber("/iris_fpv_cam/usb_cam/image_raw", Image, self.image_callback)
-
+        self.image_sub = rospy.Subscriber("/tello/camera/image_raw", Image, self.image_callback) ## DEBUG change to tello
+        #self.image_sub = rospy.Subscriber("/iris_fpv_cam/usb_cam/image_raw", Image, self.image_callback)
+        self.running_sub = rospy.Subscriber("/cv_detection/set_running_state", Bool, self.running_callback)
         self.img_publisher = rospy.Publisher("/cv_detection/debug/image", Image, queue_size=1)
         self.small_img_publisher = rospy.Publisher("/cv_detection/debug/small_image", Image, queue_size=1)
+        self.running_state = False
 
+    def running_callback(self, bool):
+        self.running_state = bool.data
+        if bool.data == True:
+            rospy.loginfo("H Detection Activated!!")
 
     def image_callback(self, image):
-        try:
-            self.gray = self.bridge.imgmsg_to_cv2(image, "mono8")
-            self.detect()
-            
-        except CvBridgeError as e:
-            print ("CvBridge Error: " + str(e))
+        if self.running_state:
+            try:
+                self.gray = self.bridge.imgmsg_to_cv2(image, "mono8")
+                rospy.loginfo("detecting...")
+                self.detect()
+                
+            except CvBridgeError as e:
+                print ("CvBridge Error: " + str(e))
 
     def order_points(self, pts):
         # initialzie a list of coordinates that will be ordered
@@ -86,10 +94,10 @@ class ShapeDetector:
 
     def detect(self):
         # Capture frame-by-frame
-            blur1 = cv2.GaussianBlur(self.gray, (9,9), 0)
+            blur1 = cv2.GaussianBlur(255 - self.gray, (9,9), 0)
             blur2 = cv2.GaussianBlur(blur1, (9,9), 0)
             _, thresh = cv2.threshold(blur2, 120, 255, cv2.THRESH_BINARY)
-            _, cnts, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            cnts, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             kernel = np.array([[-1, 3.5, -1],
                                 [-1, -1, -1],
                                 [-1, 3.5, -1]], np.float64)
