@@ -156,7 +156,9 @@ bool HDetector::detect (Mat frame){
     bool detected = false;
 
     Mat frame2 = frame;
-
+    if(DEBUG){
+        imshow("Lines", frame2);
+    }
     cvtColor(frame, frame, CV_RGB2GRAY);
     // Blur and threshold remove noise from image
     GaussianBlur(frame, frame, Size(9,9), 0);
@@ -218,40 +220,13 @@ bool HDetector::detect (Mat frame){
             four_points_transform(frame);
             
             if(DEBUG){
-
-                float cx = 0, cy = 0;
-
-                for(Point2f point : edge_pts){
-                    cx += point.x;
-                    cy += point.y;
-                }
-                cx /= 4.0;
-                cy /= 4.0;
-                
                 imshow("warped", frame);
-
-                // Shows captures edge of H in black
-                circle(frame2, edge_pts[0], 3, (255,0,0), 3 );
-                circle(frame2, edge_pts[1], 3, (255,0,0), 3 );
-                circle(frame2, edge_pts[2], 3, (255,0,0), 3 );                
-                circle(frame2, edge_pts[3], 3, (255,0,0), 3 );
-                // Draws bound
-                rectangle(frame2, bounds, (0,255,0));
-                //Shows H center
-                circle(frame2, Point2f(this->bounds.x + this->bounds.width/2, this->bounds.y + this->bounds.height/2), 3, (0, 0, 255), 3 );
-                
-                imshow("Lines", frame2);
             }
             
             if (angle_check(approx)){
                                 
-                /* Maximizes the sum for an image that is composed of two vertical
-                    strips on each side, each spanning 1/3 of the images length 
-                    Like so:
-                    111000111
-                    111000111
-                    111000111
-                */
+                // Maximizes the sum for an image that looks like an H
+                
                 Mat kernel_vertical = (Mat_<float>(3,3) <<
                 -1, 5,-1
                 -1, -1, -1
@@ -262,15 +237,8 @@ bool HDetector::detect (Mat frame){
                 5, -1, 5
                 -1, -1, -1
                 );
-                /* Maximizes the sum for an image that is composed of one vertical 
-                    strip in the middle spanning 1/3 of the images length 
-                    Like so:
-                    000111000
-                    000111000
-                    000111000
-                */                
-
-                /* Resizes processed image to 12x12 for lighter processing and
+                
+                /* Resizes processed image to 3x3 for lighter processing and
                     converts to compatible format */
                 Mat small_img;
                 resize(this->warped, small_img, Size(3,3), INTER_AREA);
@@ -278,7 +246,7 @@ bool HDetector::detect (Mat frame){
 
                 if(DEBUG){ 
                     Mat big_small_img;
-                    // Increase size of small_img for analysis
+                    // Increase size of small_img for human analysis
                     resize(small_img, big_small_img, Size(90,90));
                     imshow("small_img", big_small_img);
                 }
@@ -286,36 +254,36 @@ bool HDetector::detect (Mat frame){
                 // As a greyscale image, the sum of its pixel values is in channel 0
                 int kernel_sum_vertical = sum((small_img)*(kernel_vertical))[0];
                 int kernel_sum_horizontal = sum((small_img)*(kernel_horizontal))[0];
-
-                /*
-                Index 0 goes for vertical H and 1, for horizontal (only positions 
-                    possible after processing)
-                
-                VERTICAL
-                Ideally has two full vertical strips in its sides, which are 12x4 
-                pixels, each with value 255
-                Also has one 4x4 square in its center, each at 255
-                Like so:
-                111000111
-                111111111
-                111000111
-
-                HORIZONTAL
-                Ideally has 4 4x4, 255 pixel squares in its sides (one in each corner)
-                Also has one full vertical strip in its centre, which is 12x4 at 255
-                Like so:
-                111111111
-                000111000
-                111111111
-
-                The sum of these arrangements is stores in ideal_sides 
-                    and ideal_middle
-                */
                 
                 if((kernel_sum_vertical >=1000 && kernel_sum_vertical <= 1300) || ((kernel_sum_horizontal <= -1000 && kernel_sum_horizontal >= -1300))){
                     cout << "H detectado"<< endl;
                     detected = true;
-                    HDetector::setArea(cnt,frame2);               
+                    HDetector::setArea(cnt,frame2);
+                    if(DEBUG){
+
+                        float cx = 0, cy = 0;
+
+                        for(Point2f point : edge_pts){
+                            cx += point.x;
+                            cy += point.y;
+                        }
+                        cx /= 4.0;
+                        cy /= 4.0;
+                
+                        imshow("warped", frame);
+
+                        // Shows captures edge of H in black
+                        circle(frame2, edge_pts[0], 3, (255,0,0), 3 );
+                        circle(frame2, edge_pts[1], 3, (255,0,0), 3 );
+                        circle(frame2, edge_pts[2], 3, (255,0,0), 3 );                
+                        circle(frame2, edge_pts[3], 3, (255,0,0), 3 );
+                        // Draws bound
+                        rectangle(frame2, bounds, (0,255,0));
+                        //Shows H center
+                        circle(frame2, Point2f(this->bounds.x + this->bounds.width/2, this->bounds.y + this->bounds.height/2), 3, (0, 0, 255), 3 );
+                
+                        imshow("Lines", frame2);
+                    }             
                 }else cout << endl;
                 
 
