@@ -106,11 +106,11 @@ generate_messages(
 #catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES cv_detection
-  CATKIN_DEPENDS roscpp rospy std_msgs message_runtime
+#  CATKIN_DEPENDS roscpp rospy std_msgs message_runtime
 #  DEPENDS system_lib
 #)
 catkin_package(
-  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msg
+  CATKIN_DEPENDS cv_bridge image_transport roscpp sensor_msgs std_msgs message_runtime
 )
 
 ###########
