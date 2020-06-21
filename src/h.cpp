@@ -160,10 +160,6 @@ bool HDetector::detect (Mat frame){
 
     Mat frame2 = frame;
     
-    if(DEBUG){
-        imshow("Lines", frame2);
-    }
-
     cvtColor(frame, frame, CV_RGB2GRAY);
     // Blur and threshold remove noise from image
     GaussianBlur(frame, frame, Size(9,9), 0);
@@ -176,6 +172,11 @@ bool HDetector::detect (Mat frame){
 
     vector<vp> contour;
     findContours(frame, contour, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+
+    if(DEBUG){
+        imshow("Lines", frame2);
+        imshow("Processed", frame);
+    }
 
     for(vp cnt : contour){
 
@@ -223,11 +224,7 @@ bool HDetector::detect (Mat frame){
             }
 
             four_points_transform(frame);
-            
-            if(DEBUG){
-                imshow("warped", frame);
-            }
-            
+
             if (angle_check(approx)){
                                 
                 // Maximizes the sum for an image that looks like an H
@@ -277,8 +274,6 @@ bool HDetector::detect (Mat frame){
                         cx /= 4.0;
                         cy /= 4.0;
                 
-                        imshow("warped", frame);
-
                         // Shows captures edge of H in black
                         circle(frame2, edge_pts[0], 3, (255,0,0), 3 );
                         circle(frame2, edge_pts[1], 3, (255,0,0), 3 );
@@ -303,7 +298,7 @@ void callback(const sensor_msgs::ImageConstPtr& img_msg){
 
     cv_bridge::CvImagePtr cv_ptr;
     ros::NodeHandle n;
-    ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection",0);
+    ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection", 0);
     
     try{
         cv_ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8);
@@ -337,12 +332,8 @@ void callback(const sensor_msgs::ImageConstPtr& img_msg){
 int main(int argc, char** arvg){
     ros::init(argc, arvg, "h_node");
     ros::NodeHandle n;
-    ros::Subscriber h_sub = n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 3, callback);
-    
-    while(ros::ok()){
-        ros::spinOnce();
-        if(waitKey(30) == 27) break;
-    }
+    ros::Subscriber h_sub = n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 1000, callback);
+    ros::spin();
 
     /* ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection",0);
     cv_detection::H_info msg;
