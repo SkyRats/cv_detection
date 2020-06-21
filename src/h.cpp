@@ -3,6 +3,9 @@ using namespace std;
 #include <opencv2/opencv.hpp>
 using namespace cv;
 #include "ros/ros.h"
+#include <sensor_msgs/image_encodings.h> 
+#include <cv_bridge/cv_bridge.h>
+
 #include "cv_detection/H_info.h"
 
 #define ANGLE_THRESH_MIN 1
@@ -156,9 +159,11 @@ bool HDetector::detect (Mat frame){
     bool detected = false;
 
     Mat frame2 = frame;
+    
     if(DEBUG){
         imshow("Lines", frame2);
     }
+
     cvtColor(frame, frame, CV_RGB2GRAY);
     // Blur and threshold remove noise from image
     GaussianBlur(frame, frame, Size(9,9), 0);
@@ -247,8 +252,10 @@ bool HDetector::detect (Mat frame){
                 if(DEBUG){ 
                     Mat big_small_img;
                     // Increase size of small_img for human analysis
-                    resize(small_img, big_small_img, Size(90,90));
+                    resize(small_img, big_small_img, Size(60,60));
                     imshow("small_img", big_small_img);
+                    // Draws bound
+                    rectangle(frame2, bounds, (0,255,0));
                 }
 
                 // As a greyscale image, the sum of its pixel values is in channel 0
@@ -277,8 +284,6 @@ bool HDetector::detect (Mat frame){
                         circle(frame2, edge_pts[1], 3, (255,0,0), 3 );
                         circle(frame2, edge_pts[2], 3, (255,0,0), 3 );                
                         circle(frame2, edge_pts[3], 3, (255,0,0), 3 );
-                        // Draws bound
-                        rectangle(frame2, bounds, (0,255,0));
                         //Shows H center
                         circle(frame2, Point2f(this->bounds.x + this->bounds.width/2, this->bounds.y + this->bounds.height/2), 3, (0, 0, 255), 3 );
                 
@@ -294,38 +299,79 @@ bool HDetector::detect (Mat frame){
     return detected;
 }
 
+void callback(const sensor_msgs::ImageConstPtr& img_msg){
+
+    cv_bridge::CvImagePtr cv_ptr;
+    ros::NodeHandle n;
+    ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection",0);
+    
+    try{
+        cv_ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8);
+    }catch (cv_bridge::Exception& e){
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
+    }
+
+    cv_detection::H_info msg;
+    HDetector* detector = new HDetector();
+
+    if ( detector->detect(cv_ptr->image) ){
+        msg.detected = true;
+        msg.center_x = detector->getCenter_X();
+        msg.center_y = detector->getCenter_Y();
+        msg.area_ratio = detector->getArea();
+    
+    }else{
+        msg.detected = false;
+        msg.center_x = -1;
+        msg.center_y = -1;
+        msg.side_diff = 0;
+        msg.area_ratio = -1;
+    }
+
+    h_pub.publish(msg);
+
+}
+
 // For testing
 int main(int argc, char** arvg){
     ros::init(argc, arvg, "h_node");
     ros::NodeHandle n;
-    ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection",0);
+    ros::Subscriber h_sub = n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 3, callback);
+    
+    while(ros::ok()){
+        ros::spinOnce();
+        if(waitKey(30) == 27) break;
+    }
+
+    /* ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection",0);
     cv_detection::H_info msg;
     Mat frame;
-    
-    //getCenter_X()
-    //getCenter_Y()
 
     VideoCapture video(0);
-    HDetector* detector = new HDetector();
     video >> frame;
+    HDetector* detector = new HDetector();
     while (ros::ok()){
+
+        ros::spinOnce();
+
         if ( detector->detect(frame) ){
             msg.detected = true;
             msg.center_x = detector->getCenter_X();
             msg.center_y = detector->getCenter_Y();
-            // msg.side_diff
             msg.area_ratio = detector->getArea();
-        }
-        else{
+        
+        }else{
             msg.detected = false;
             msg.center_x = -1;
             msg.center_y = -1;
             msg.side_diff = 0;
             msg.area_ratio = -1;
         }
+
         h_pub.publish(msg);
         if (waitKey(30) == 27) break;
-        video >> frame;
-    }
+        video >> frame; 
+    } */
 }
 

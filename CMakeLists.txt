@@ -10,7 +10,10 @@ project(cv_detection)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
+  cv_bridge
+  image_transport
   message_generation
+  sensor_msgs
   std_msgs
 )
 find_package(OpenCV 3 REQUIRED)
