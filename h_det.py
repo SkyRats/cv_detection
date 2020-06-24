@@ -146,7 +146,8 @@ while(True):
             soma2 = parts2.sum()
             parts3 = small_img*kernel3
             soma3 = parts3.sum()
-            print soma
+            print 
+            
             if (soma>=1240 or soma2>=1240 or soma3>=1240 or soma4>=1240):
                 print "AAAAAAAAAA"
                 cv2.putText(frame, "Eh um H", (x,y), font, 1, (0, 255, 0))
