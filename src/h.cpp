@@ -7,6 +7,7 @@ using namespace cv;
 #include <cv_bridge/cv_bridge.h>
 
 #include "cv_detection/H_info.h"
+#include "std_msgs/Bool.h"
 
 #define ANGLE_THRESH_MIN 1
 #define ANGLE_THRESH_MAX 2.2
@@ -294,45 +295,61 @@ bool HDetector::detect (Mat frame){
     return detected;
 }
 
+class Subscriber{
+    public:
+        void callback(std_msgs::Bool received);
+        bool running_state;
+        bool getRunningState();
+};
+void Subscriber::callback(std_msgs::Bool received){
+    this->running_state = received.data;
+}
+bool Subscriber::getRunningState(){
+    return this->running_state;
+}
+
 void callback(const sensor_msgs::ImageConstPtr& img_msg){
-
-    cv_bridge::CvImagePtr cv_ptr;
-    ros::NodeHandle n;
-    ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection", 0);
+    Subscriber* subscriber = new Subscriber();
+    if(subscriber->getRunningState()){
+        cv_bridge::CvImagePtr cv_ptr;
+        ros::NodeHandle n;
+        ros::Publisher h_pub = n.advertise<cv_detection::H_info>("/cv_detection/detection", 0);
     
-    try{
-        cv_ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8);
-    }catch (cv_bridge::Exception& e){
-        ROS_ERROR("cv_bridge exception: %s", e.what());
-        return;
-    }
+        try{
+            cv_ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8);
+        }catch (cv_bridge::Exception& e){
+            ROS_ERROR("cv_bridge exception: %s", e.what());
+            return;
+        }
 
-    cv_detection::H_info msg;
-    HDetector* detector = new HDetector();
+        cv_detection::H_info msg;
+        HDetector* detector = new HDetector();
 
-    if ( detector->detect(cv_ptr->image) ){
-        msg.detected = true;
-        msg.center_x = detector->getCenter_X();
-        msg.center_y = detector->getCenter_Y();
-        msg.area_ratio = detector->getArea();
+        if ( detector->detect(cv_ptr->image) ){
+            msg.detected = true;
+            msg.center_x = detector->getCenter_X();
+            msg.center_y = detector->getCenter_Y();
+            msg.area_ratio = detector->getArea();
     
-    }else{
-        msg.detected = false;
-        msg.center_x = -1;
-        msg.center_y = -1;
-        msg.side_diff = 0;
-        msg.area_ratio = -1;
+        }else{
+            msg.detected = false;
+            msg.center_x = -1;
+            msg.center_y = -1;
+            msg.side_diff = 0;
+            msg.area_ratio = -1;
+        }
+
+        h_pub.publish(msg);
     }
-
-    h_pub.publish(msg);
-
 }
 
 // For testing
 int main(int argc, char** arvg){
     ros::init(argc, arvg, "h_node");
     ros::NodeHandle n;
-    ros::Subscriber h_sub = n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 1000, callback);
+    ros::Subscriber h_sub_image = n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 1000, callback);
+    Subscriber listener;
+    ros::Subscriber h_sub_runner = n.subscribe("/cv_detection/set_running_state",10,&Subscriber::callback, &listener); //starts when run_h_mission.py commands
     ros::spin();
 
     /* ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection",0);
