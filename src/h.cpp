@@ -345,14 +345,14 @@ void callback(const sensor_msgs::ImageConstPtr& img_msg){
 
 // For testing
 int main(int argc, char** arvg){
-    ros::init(argc, arvg, "h_node");
+    /* ros::init(argc, arvg, "h_node");
     ros::NodeHandle n;
     ros::Subscriber h_sub_image = n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 1000, callback);
     Subscriber listener;
     ros::Subscriber h_sub_runner = n.subscribe("/cv_detection/set_running_state",10,&Subscriber::callback, &listener); //starts when run_h_mission.py commands
     ros::spin();
 
-    /* ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection",0);
+    ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection",0);*/
     cv_detection::H_info msg;
     Mat frame;
 
@@ -380,6 +380,6 @@ int main(int argc, char** arvg){
         h_pub.publish(msg);
         if (waitKey(30) == 27) break;
         video >> frame; 
-    } */
+    } 
 }
 
