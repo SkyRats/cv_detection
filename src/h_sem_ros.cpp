@@ -30,7 +30,7 @@ class HDetector {
     private:
         vpf edge_pts = { Point2f(0,0), Point2f(0,0), Point2f(0,0), Point2f(0,0) };
         void order_points();
-        void four_points_transform(Mat image);
+        Mat four_points_transform(Mat image);
         float angle(Point2f v1, Point2f v2, Point2f relative = Point2f(0,0) );
         bool angle_check(vpf pts);
     public:
@@ -68,7 +68,7 @@ void HDetector::order_points(){
 
 /* Takes an image as argument and returns warped perspective, moving edge_pts to
 the edge of the frame */
-void HDetector::four_points_transform(Mat image){
+Mat HDetector::four_points_transform(Mat image){
 
     order_points();
 
@@ -98,6 +98,7 @@ void HDetector::four_points_transform(Mat image){
     
     warpPerspective(image, this->warped, M, Size(maxWidth, maxHeight));
 
+    return M;
 }
 
 // Determines angle between vectors 'v1' and 'v2' using 'relative' as origin
@@ -123,7 +124,7 @@ bool HDetector::angle_check(vpf pts){
     for (int i = 0; i < 12; i++){
         // General term
         a = angle(pts[(12+i+1)%12], pts[(12+i-1)%12], pts[(12+i)%12]);
-        if ( abs( abs(a) - PI ) < ANGLE_THRESH)
+        if ( abs( abs(a) - PI/2 ) < ANGLE_THRESH)
             return false;
         else
             current_bm = current_bm | (a > 0) << i;
@@ -203,29 +204,32 @@ Mat HDetector::detect (Mat frame){
                     for(Point2f v : approx){
 
                         // Close on left side of bound
-                        if( abs(v.x - bounds.x) <= 1) edge_pts[0] = v;
+                        if( abs(v.x - bounds.x) <= 1) this->edge_pts[0] = v;
                         // On right side
-                        else if( abs(v.x - (bounds.x + bounds.width) ) <= 1) edge_pts[1] = v;
+                        else if( abs(v.x - (bounds.x + bounds.width) ) <= 1) this->edge_pts[1] = v;
 
                         // On top
-                        else if( abs(v.y - bounds.y) <= 1) edge_pts[2] = v;
+                        else if( abs(v.y - bounds.y) <= 1) this->edge_pts[2] = v;
                         //On bottom
-                        else if( abs(v.y - (bounds.y + bounds.height) ) <= 1) edge_pts[3] = v;
+                        else if( abs(v.y - (bounds.y + bounds.height) ) <= 1) this->edge_pts[3] = v;
 
                     }
 
                 }
 
-                four_points_transform(frame);
+                Mat perspective = four_points_transform(frame);
+                vpf transformed;
+                perspectiveTransform(approx, transformed, perspective);
                 
                 if(DEBUG){
                     imshow("warped", frame);
 
                     // Shows captures edge of H in black
-                    circle(frame2, edge_pts[0], 3, (255,0,0), 3 );
-                    circle(frame2, edge_pts[1], 3, (255,0,0), 3 );
-                    circle(frame2, edge_pts[2], 3, (255,0,0), 3 );                
-                    circle(frame2, edge_pts[3], 3, (255,0,0), 3 );
+                    circle(frame2, this->edge_pts[0], 3, (255,0,0), 3 );
+                    circle(frame2, this->edge_pts[1], 3, (255,0,0), 3 );
+                    circle(frame2, this->edge_pts[2], 3, (255,0,0), 3 );                
+                    circle(frame2, this->edge_pts[3], 3, (255,0,0), 3 );
+
                     // Draws bound
                     rectangle(frame2, bounds, (0,255,0));
                     imshow("Lines", frame2);
@@ -236,7 +240,8 @@ Mat HDetector::detect (Mat frame){
                     resize(this->warped, small_img, Size(12,12), INTER_AREA);
                     small_img.convertTo(small_img, CV_32FC2);
 
-                    if(DEBUG){ 
+                    if(DEBUG){
+
                         Mat big_small_img;
                         // Increase size of small_img for analysis
                         resize(small_img, big_small_img, Size(300,300));
