@@ -9,10 +9,7 @@ using namespace cv;
 #include "cv_detection/H_info.h"
 #include "std_msgs/Bool.h"
 
-#define ANGLE_THRESH_MIN 1
-#define ANGLE_THRESH_MAX 2.2
-#define KERNEL_THRESH_MAX 1.2
-#define KERNEL_THRESH_MIN 0.9
+#define ANGLE_THRESH 0.01
 #define PI 3.14159
 
 #define vp vector<Point>
@@ -21,6 +18,8 @@ using namespace cv;
 // Set true for debugging purposes, showing internals of algorithm
 #define DEBUG true
 
+int NUM_GAUSS_BLUR = 0;
+
 // Sorts points based on y coordinate
 struct comparison {
     bool operator() (Point2f pt1, Point2f pt2) { return (pt1.y > pt2.y);}
@@ -28,11 +27,11 @@ struct comparison {
 
 class HDetector {
     private:
-        vpf edge_pts = { Point2f(0,0), Point2f(0,0), Point2f(0,0), Point2f(0,0)};
+        vpf edge_pts = { Point2f(0,0), Point2f(0,0), Point2f(0,0), Point2f(0,0) };
         Rect bounds;
         float area_ratio;
         void order_points();
-        void four_points_transform(Mat image);
+        Mat four_points_transform(Mat image);
         float angle(Point2f v1, Point2f v2, Point2f relative = Point2f(0,0) );
         bool angle_check(vpf pts);
     public:
@@ -46,8 +45,7 @@ class HDetector {
 
 };
 
-HDetector::HDetector(){
-}
+HDetector::HDetector() {}
 
 /* Order points in edge_pts so that the first exit is the top-left, the second 
 top-right, the third bottom-right, and the fourth bottom-left */   
@@ -75,7 +73,7 @@ void HDetector::order_points(){
 
 /* Takes an image as argument and returns warped perspective, moving edge_pts to
 the edge of the frame */
-void HDetector::four_points_transform(Mat image){
+Mat HDetector::four_points_transform(Mat image){
 
     order_points();
 
@@ -105,6 +103,7 @@ void HDetector::four_points_transform(Mat image){
     
     warpPerspective(image, this->warped, M, Size(maxWidth, maxHeight));
 
+    return M;
 }
 
 // Determines angle between vectors 'v1' and 'v2' using 'relative' as origin
@@ -115,27 +114,36 @@ float HDetector::angle(Point2f v1, Point2f v2, Point2f relative){
     Vlenght1 = sqrt((v1.x - relative.x)*(v1.x - relative.x) + (v1.y - relative.y)*(v1.y - relative.y));
     Vlenght2 = sqrt((v2.x - relative.x)*(v2.x - relative.x) + (v2.y - relative.y)*(v2.y - relative.y));
     // Takes dot product and divides by vector lengths to get cos of the angle
-    float a = ((v1.x - relative.x)*(v2.x - relative.x) + (v1.y - relative.y)*(v2.y -relative.y))/(Vlenght1*Vlenght2);
+    float a = ((v1.x - relative.x)*(v2.y - relative.y) - (v1.y - relative.y)*(v2.x -relative.x))/(Vlenght1*Vlenght2);
 
-    return acos(a);
+    return asin(a);
 }
 
-/* Checks if all sides of a 12 sided shape 'pts' are perpendicular, 
-    using ANGLE_THRESH */
+/* Checks if all sides of a 12 sided shape 'pts' are perpendicular and have the 
+right orientation, using ANGLE_THRESH */
 bool HDetector::angle_check(vpf pts){
     
-    // First has to be done manually
-    float a = angle(pts[1], pts[11], pts[0]);
-    if (a < ANGLE_THRESH_MIN && a > ANGLE_THRESH_MAX){
-        return false;
-    }else{
-        for (int i = 1; i <= 10; i++){
-            // General term
-            a = angle(pts[i+1], pts[i-1], pts[i]);
-            if (a < ANGLE_THRESH_MIN && a > ANGLE_THRESH_MAX)
-                return false;
+    int bitmasks[8] = {2145,195,390,780,1560,3120};
+    int current_bm = 0;
+
+    float a = 0;
+    for (int i = 0; i < 12; i++){
+        // General term
+        a = angle(pts[(12+i+1)%12], pts[(12+i-1)%12], pts[(12+i)%12]);
+        if ( abs( abs(a) - PI/2 ) < ANGLE_THRESH)
+            return false;
+        else
+            current_bm = current_bm | (a > 0) << i;
+    }
+
+    for(int bm : bitmasks){
+        if(current_bm == bm) 
+        {
+            if (!TESTE_VEL) cout << "H detectado"<< endl;
+            return true;
         }
     }
+    return false;
 
 }
 
@@ -163,16 +171,16 @@ bool HDetector::detect (Mat frame){
     
     cvtColor(frame, frame, CV_RGB2GRAY);
     // Blur and threshold remove noise from image
-    GaussianBlur(frame, frame, Size(9,9), 0);
-    GaussianBlur(frame, frame, Size(9,9), 0);
-    GaussianBlur(frame, frame, Size(9,9), 0);
-    GaussianBlur(frame, frame, Size(9,9), 0);
-    GaussianBlur(frame, frame, Size(9,9), 0);
-    GaussianBlur(frame, frame, Size(9,9), 0);
-    threshold(frame, frame, 150, 255, 0);
+    
+    for (int test = 0; test < NUM_GAUSS_BLUR; test++){
+        GaussianBlur(frame, frame, Size(5,5), 0);
+    }
+    threshold(frame, frame, 200, 255, 1);
+    adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 9, 20.0);
+    adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0.0);
 
     vector<vp> contour;
-    findContours(frame, contour, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+    findContours(frame, contour, RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
 
     if(DEBUG){
         imshow("Lines", frame2);
@@ -189,8 +197,8 @@ bool HDetector::detect (Mat frame){
 
             this->bounds = boundingRect(approx); // Precisa ser Rect2f?
             
-            float a1 = angle(approx[0] - approx[1], Point2f(0,1) );
-            float a2 = angle(approx[1] - approx[2], Point2f(0,1) );
+            float a1 = angle(approx[0] - approx[1], Point2f(0,1));
+            float a2 = angle(approx[1] - approx[2], Point2f(0,1));
 
             /* If the sides of the H are very close to parallel to its bounds,
                 use the bounding rect vertices for warp */
@@ -211,21 +219,37 @@ bool HDetector::detect (Mat frame){
                 for(Point2f v : approx){
 
                     // Close on left side of bound
-                    if( abs(v.x - bounds.x) <= 1) edge_pts[0] = v;
+                    if( abs(v.x - bounds.x) <= 1) this->edge_pts[0] = v;
                     // On right side
-                    else if( abs(v.x - (bounds.x + bounds.width) ) <= 1) edge_pts[1] = v;
+                    else if( abs(v.x - (bounds.x + bounds.width) ) <= 1) this->edge_pts[1] = v;
 
                     // On top
-                    else if( abs(v.y - bounds.y) <= 1) edge_pts[2] = v;
+                    else if( abs(v.y - bounds.y) <= 1) this->edge_pts[2] = v;
                     //On bottom
-                    else if( abs(v.y - (bounds.y + bounds.height) ) <= 1) edge_pts[3] = v;
+                    else if( abs(v.y - (bounds.y + bounds.height) ) <= 1) this->edge_pts[3] = v;
 
                 }
 
             }
 
-            four_points_transform(frame);
+            Mat perspective = four_points_transform(frame);
+            vpf transformed;
+            perspectiveTransform(approx, transformed, perspective);
 
+            if(DEBUG){ 
+                imshow("warped", frame);
+
+                // Shows captures edge of H in black
+                circle(frame2, this->edge_pts[0], 3, (255,0,0), 3 );
+                circle(frame2, this->edge_pts[1], 3, (255,0,0), 3 );
+                circle(frame2, this->edge_pts[2], 3, (255,0,0), 3 );                
+                circle(frame2, this->edge_pts[3], 3, (255,0,0), 3 );
+
+                // Draws bound
+                rectangle(frame2, bounds, (0,255,0));
+                imshow("Lines", frame2);
+            }
+            
             if (angle_check(approx)){
                                 
                 // Maximizes the sum for an image that looks like an H
@@ -241,20 +265,14 @@ bool HDetector::detect (Mat frame){
                 -1, -1, -1
                 );
                 
+
                 /* Resizes processed image to 3x3 for lighter processing and
                     converts to compatible format */
                 Mat small_img;
                 resize(this->warped, small_img, Size(3,3), INTER_AREA);
                 small_img.convertTo(small_img, CV_32FC2);
 
-                if(DEBUG){ 
-                    Mat big_small_img;
-                    // Increase size of small_img for human analysis
-                    resize(small_img, big_small_img, Size(60,60));
-                    imshow("small_img", big_small_img);
-                    // Draws bound
-                    rectangle(frame2, bounds, (0,255,0));
-                }
+                
 
                 // As a greyscale image, the sum of its pixel values is in channel 0
                 int kernel_sum_vertical = sum((small_img)*(kernel_vertical))[0];
