@@ -251,62 +251,13 @@ bool HDetector::detect (Mat frame){
             }
             
             if (angle_check(approx)){
-                                
-                // Maximizes the sum for an image that looks like an H
-                
-                Mat kernel_vertical = (Mat_<float>(3,3) <<
-                -1, 5,-1
-                -1, -1, -1
-                -1, 5, -1
-                );
-                Mat kernel_horizontal = (Mat_<float>(3,3) <<
-                -1, -1,-1,
-                5, -1, 5
-                -1, -1, -1
-                );
-                
+                detected = true;
+            }
 
-                /* Resizes processed image to 3x3 for lighter processing and
-                    converts to compatible format */
-                Mat small_img;
-                resize(this->warped, small_img, Size(3,3), INTER_AREA);
-                small_img.convertTo(small_img, CV_32FC2);
-
-                
-
-                // As a greyscale image, the sum of its pixel values is in channel 0
-                int kernel_sum_vertical = sum((small_img)*(kernel_vertical))[0];
-                int kernel_sum_horizontal = sum((small_img)*(kernel_horizontal))[0];
-                
-                if((kernel_sum_vertical >=1000 && kernel_sum_vertical <= 1300) || ((kernel_sum_horizontal <= -1000 && kernel_sum_horizontal >= -1300))){
-                    cout << "H detectado"<< endl;
-                    detected = true;
-                    HDetector::setArea(cnt,frame2);
-                    if(DEBUG){
-
-                        float cx = 0, cy = 0;
-
-                        for(Point2f point : edge_pts){
-                            cx += point.x;
-                            cy += point.y;
-                        }
-                        cx /= 4.0;
-                        cy /= 4.0;
-                
-                        // Shows captures edge of H in black
-                        circle(frame2, edge_pts[0], 3, (255,0,0), 3 );
-                        circle(frame2, edge_pts[1], 3, (255,0,0), 3 );
-                        circle(frame2, edge_pts[2], 3, (255,0,0), 3 );                
-                        circle(frame2, edge_pts[3], 3, (255,0,0), 3 );
-                        //Shows H center
-                        circle(frame2, Point2f(this->bounds.x + this->bounds.width/2, this->bounds.y + this->bounds.height/2), 3, (0, 0, 255), 3 );
-                
-                        imshow("Lines", frame2);
-                    }             
-                }else cout << endl;
-                
-
-            }else cout << endl;
+            if(DEBUG){
+                if(detected == true) cout << "H detectado!" << endl;
+                else cout << endl;
+            }
             
         }
     }
@@ -319,9 +270,11 @@ class Subscriber{
         bool running_state;
         bool getRunningState();
 };
+
 void Subscriber::callback(std_msgs::Bool received){
     this->running_state = received.data;
 }
+
 bool Subscriber::getRunningState(){
     return this->running_state;
 }
@@ -363,15 +316,22 @@ void callback(const sensor_msgs::ImageConstPtr& img_msg){
 
 // For testing
 int main(int argc, char** arvg){
-    /* ros::init(argc, arvg, "h_node");
+    
+    ros::init(argc, arvg, "h_node");
     ros::NodeHandle n;
+    ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection", 0);
+    cv_detection::H_info msg;
+    
+    /* For testing with Gazebo iris_fpv_cam and running_state */
+    /*
     ros::Subscriber h_sub_image = n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 1000, callback);
     Subscriber listener;
-    ros::Subscriber h_sub_runner = n.subscribe("/cv_detection/set_running_state",10,&Subscriber::callback, &listener); //starts when run_h_mission.py commands
+    ros::Subscriber h_sub_runner = n.subscribe("/cv_detection/set_running_state",10, &Subscriber::callback, &listener); //starts when run_h_mission.py commands
     ros::spin();
-
-    ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection",0);*/
-    cv_detection::H_info msg;
+    */
+    
+    /* For testing directly on webcam*/
+    // /*
     Mat frame;
 
     VideoCapture video(0);
@@ -391,13 +351,13 @@ int main(int argc, char** arvg){
             msg.detected = false;
             msg.center_x = -1;
             msg.center_y = -1;
-            msg.side_diff = 0;
             msg.area_ratio = -1;
         }
 
         h_pub.publish(msg);
         if (waitKey(30) == 27) break;
         video >> frame; 
-    } 
+    }
+    // */ 
 }
 
