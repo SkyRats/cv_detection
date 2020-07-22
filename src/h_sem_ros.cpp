@@ -5,11 +5,17 @@ using namespace cv;
 #include <chrono> 
 using namespace std::chrono;
 
+#include "ros/ros.h"
+#include <sensor_msgs/image_encodings.h> 
+#include <cv_bridge/cv_bridge.h>
+
+#include "cv_detection/H_info.h"
+#include "std_msgs/Bool.h"
+
 #define ANGLE_THRESH 0.01
 #define TESTE_VEL 0
 #define TEST_VID 1
 #define PI 3.14159
-#define PERI_THRESH 50
 #define KERNEL_THRESH_MAX 1.2
 #define KERNEL_THRESH_MIN 0.9
 
@@ -236,17 +242,6 @@ Mat HDetector::detect (Mat frame){
                 }
                 
                 if (angle_check(approx)){
-                    Mat small_img;
-                    resize(this->warped, small_img, Size(12,12), INTER_AREA);
-                    small_img.convertTo(small_img, CV_32FC2);
-
-                    if(DEBUG){
-
-                        Mat big_small_img;
-                        // Increase size of small_img for analysis
-                        resize(small_img, big_small_img, Size(300,300));
-                        imshow("small_img", big_small_img);
-                    }
 
                     if (!TESTE_VEL) cout << "H detectado"<< endl;                    
                     auto stop = high_resolution_clock::now(); 
