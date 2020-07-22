@@ -1,0 +1,6 @@
+devel_space: /home/tomaz/ros_workspaces/skyrats/src/cv_detection/devel
+install: false
+install_space: /home/tomaz/ros_workspaces/skyrats/src/cv_detection/install
+profile: default
+source_space: /home/tomaz/ros_workspaces/skyrats/src/cv_detection/src
+workspace: /home/tomaz/ros_workspaces/skyrats/src/cv_detection

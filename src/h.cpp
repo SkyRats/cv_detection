@@ -7,6 +7,7 @@ using namespace cv;
 #include <cv_bridge/cv_bridge.h>
 
 #include "cv_detection/H_info.h"
+//#include "cv_detection/HInfo.h"
 #include "std_msgs/Bool.h"
 
 #define ANGLE_THRESH 0.01
@@ -138,10 +139,7 @@ bool HDetector::angle_check(vpf pts){
 
     for(int bm : bitmasks){
         if(current_bm == bm) 
-        {
-            if (!TESTE_VEL) cout << "H detectado"<< endl;
             return true;
-        }
     }
     return false;
 
@@ -285,6 +283,7 @@ void callback(const sensor_msgs::ImageConstPtr& img_msg){
         cv_bridge::CvImagePtr cv_ptr;
         ros::NodeHandle n;
         ros::Publisher h_pub = n.advertise<cv_detection::H_info>("/cv_detection/detection", 0);
+        //ros::Publisher h_pub = n.advertise<cv_detection::HInfo>("/cv_detection/detection", 0);
     
         try{
             cv_ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8);
@@ -294,6 +293,7 @@ void callback(const sensor_msgs::ImageConstPtr& img_msg){
         }
 
         cv_detection::H_info msg;
+        //cv_detection::HInfo msg;
         HDetector* detector = new HDetector();
 
         if ( detector->detect(cv_ptr->image) ){
@@ -320,7 +320,9 @@ int main(int argc, char** arvg){
     ros::init(argc, arvg, "h_node");
     ros::NodeHandle n;
     ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection", 0);
+    //ros::Publisher h_pub = n.advertise<cv_detection::HInfo>("h_detection", 0);
     cv_detection::H_info msg;
+    //cv_detection::HInfo msg;
     
     /* For testing with Gazebo iris_fpv_cam and running_state */
     /*
