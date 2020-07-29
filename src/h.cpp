@@ -17,7 +17,7 @@ using namespace cv;
 #define vpf vector<Point2f>
 
 // Set true for debugging purposes, showing internals of algorithm
-#define DEBUG true
+#define DEBUG false
 
 int NUM_GAUSS_BLUR = 0;
 
@@ -306,7 +306,6 @@ void callback(const sensor_msgs::ImageConstPtr& img_msg){
             msg.detected = false;
             msg.center_x = -1;
             msg.center_y = -1;
-            msg.side_diff = 0;
             msg.area_ratio = -1;
         }
 
@@ -325,15 +324,15 @@ int main(int argc, char** arvg){
     //cv_detection::HInfo msg;
     
     /* For testing with Gazebo iris_fpv_cam and running_state */
-    /*
+    // /*
     ros::Subscriber h_sub_image = n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 1000, callback);
     Subscriber listener;
     ros::Subscriber h_sub_runner = n.subscribe("/cv_detection/set_running_state",10, &Subscriber::callback, &listener); //starts when run_h_mission.py commands
     ros::spin();
-    */
+    // */
     
     /* For testing directly on webcam*/
-    // /*
+    /*
     Mat frame;
 
     VideoCapture video(0);
@@ -360,6 +359,6 @@ int main(int argc, char** arvg){
         if (waitKey(30) == 27) break;
         video >> frame; 
     }
-    // */ 
+    */ 
 }
 
