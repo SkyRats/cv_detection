@@ -10,7 +10,7 @@ using namespace std;
 using namespace cv;
 
 
-class MotionDetecter {
+class MotionDetector {
     private:
         bool primeira;
         int total_sum;
@@ -20,12 +20,23 @@ class MotionDetecter {
         bool is_relevant(vector<Point> rect);
 
     public:
+<<<<<<< HEAD
+        MotionDetector();
+=======
         MotionDetecter();
         void frame_reset(Mat frame);
+>>>>>>> master
         bool detect(Mat new_image); // ver se é a primera, se for a primeira retornar false
         vector<Rect> relevant_rectangles;
 };
 
+<<<<<<< HEAD
+MotionDetector::MotionDetector(){
+    this->primeira = true;
+};
+
+bool MotionDetector::detect(Mat new_image) {
+=======
 void MotionDetecter::frame_reset(Mat frame){
     cvtColor(frame, this->old_gray, CV_RGB2GRAY);
 };
@@ -35,6 +46,7 @@ MotionDetecter::MotionDetecter(){
 
 bool MotionDetecter::detect(Mat frame) {
     Mat new_image = frame;
+>>>>>>> master
     if (this->primeira == true) {
         cvtColor(new_image, this->old_gray, CV_RGB2GRAY);
         this->primeira = false;
@@ -58,14 +70,19 @@ bool MotionDetecter::detect(Mat frame) {
     }
 };
 
+<<<<<<< HEAD
+bool MotionDetector::is_relevant(vector<Point> rect) {
+    if(contourArea(rect) > 1000){ //precisamos definir como veremos a area minima
+=======
 
 bool MotionDetecter::is_relevant(vector<Point> rect) {
     if(contourArea(rect) > 10000){ //precisamos definir como veremos a area minima
+>>>>>>> master
         return true;
     }
 };
 
-void MotionDetecter::image_treat() {
+void MotionDetector::image_treat() {
     Mat subtracted_frame = this->old_gray - this->new_gray;
     imshow("new", old_gray);
     threshold(subtracted_frame, subtracted_frame, MIN_PIX_VALUE , 255 , 0 );
@@ -75,7 +92,7 @@ void MotionDetecter::image_treat() {
     imshow("tratado", this->cv_frame);
 };
 
-void MotionDetecter::bounding_recs() {
+void MotionDetector::bounding_recs() {
     relevant_rectangles.clear();
     vector<vector<Point>> stored_contours;
     vector<Point> poly;
@@ -96,8 +113,12 @@ int main() {
     Mat frame, reseter;
     VideoCapture video(-1); // captures video from default cam
 
+<<<<<<< HEAD
+    MotionDetector* detecter = new MotionDetector;
+=======
     MotionDetecter* detecter = new MotionDetecter;
     int i = 0;
+>>>>>>> master
     while (true) {
         video >> frame;
         video >> reseter;

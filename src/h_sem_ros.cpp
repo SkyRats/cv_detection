@@ -2,64 +2,90 @@
 using namespace std;
 #include <opencv2/opencv.hpp>
 using namespace cv;
+#include <chrono> 
+using namespace std::chrono;
 
-#define ANGLE_THRESH_MIN 1
-#define ANGLE_THRESH_MAX 2.2
+#include "ros/ros.h"
+#include <sensor_msgs/image_encodings.h> 
+#include <cv_bridge/cv_bridge.h>
+
+#include "cv_detection/H_info.h"
+#include "std_msgs/Bool.h"
+
+#define ANGLE_THRESH 0.01
+#define TESTE_VEL 0
+#define TEST_VID 1
 #define PI 3.14159
+#define KERNEL_THRESH_MAX 1.2
+#define KERNEL_THRESH_MIN 0.9
 
 #define vp vector<Point>
 #define vpf vector<Point2f>
 
+// Set true for debugging purposes, showing internals of algorithm
 #define DEBUG true
 
-// Prototipos das funcoes
-vpf order_points(vpf pts);
-void four_points_transform(Mat *image, vpf pts);
-Mat detect(Mat frame);
-float dot_product_angle(Point2f p1, Point2f p2);
-bool scalar_product_check(vpf pts);
+int NUM_GAUSS_BLUR = 0;
 
-
+// Sorts points based on y coordinate
 struct comparison {
     bool operator() (Point2f pt1, Point2f pt2) { return (pt1.y > pt2.y);}
 } comparing;
 
-vpf order_points(vpf pts){
+class HDetector {
+    private:
+        vpf edge_pts = { Point2f(0,0), Point2f(0,0), Point2f(0,0), Point2f(0,0) };
+        void order_points();
+        Mat four_points_transform(Mat image);
+        float angle(Point2f v1, Point2f v2, Point2f relative = Point2f(0,0) );
+        bool angle_check(vpf pts);
+    public:
+        Mat warped; 
+        HDetector();
+        Mat detect (Mat frame);
 
-    sort(pts.begin(), pts.end(), comparing);
+};
+
+HDetector::HDetector() {}
+
+/* Order points in edge_pts so that the first exit is the top-left, the second 
+top-right, the third bottom-right, and the fourth bottom-left */   
+void HDetector::order_points(){
+
+    sort(this->edge_pts.begin(), this->edge_pts.end(), comparing);
     Point2f p1, p2;
 
-    if(pts[0].x > pts[1].x ){
-        p1 = pts[1];
-        pts[1] = pts[0];
-        pts[0] = p1;
+    /* Switch the position of the first and second points
+        if the second is to the right of the second */
+    if(this->edge_pts[0].x > this->edge_pts[1].x ){
+        p1 = this->edge_pts[1];
+        this->edge_pts[1] = this->edge_pts[0];
+        this->edge_pts[0] = p1;
     }
 
-    if(pts[2].x < pts[3].x){
-        p2 = pts[3];
-        pts[3] = pts[2];
-        pts[2] = p2;
+    /* Same as above for the third and fourth */
+    if(this->edge_pts[2].x < this->edge_pts[3].x){
+        p2 = this->edge_pts[3];
+        this->edge_pts[3] = this->edge_pts[2];
+        this->edge_pts[2] = p2;
     }
 
-    //if(DEBUG) cout << pts << endl;
-
-    return pts;
 }
 
-void four_points_transform(Mat *image, vpf pts){
+/* Takes an image as argument and returns warped perspective, moving edge_pts to
+the edge of the frame */
+Mat HDetector::four_points_transform(Mat image){
 
-    vpf rect = order_points(pts);
+    order_points();
 
-    /* Se alguem souber de um jeito mais eficiente de fazer isso,
-    me avisa */ 
-    Point tl = rect[0];
-    Point tr = rect[1];
-    Point br = rect[2];
-    Point bl = rect[3];
+    Point tl = this->edge_pts[0];
+    Point tr = this->edge_pts[1];
+    Point br = this->edge_pts[2];
+    Point bl = this->edge_pts[3];
 
-    float widthA =  sqrt( abs ( pow( br.x - bl.x, 2) - pow( br.y - bl.y, 2 ) ) );  
-    float widthB =  sqrt( abs ( pow( tr.x - tl.x, 2) - pow( tr.y - tl.y, 2 ) ) );
-    /* Precisa de mencao explicita porque existe cv::max */
+    float widthA =  sqrt( abs ( pow( br.x - bl.x, 2.0) - pow( br.y - bl.y, 2.0 ) ) );  
+    float widthB =  sqrt( abs ( pow( tr.x - tl.x, 2.0) - pow( tr.y - tl.y, 2.0 ) ) );
+    // Requires explicit reference due to cv::max
     float maxWidth = std::max(widthA, widthB);
 
     float heightA =  sqrt( abs ( pow( br.y - tr.y, 2.0 ) - pow( br.x - tr.x, 2.0) ) ); 
@@ -70,197 +96,195 @@ void four_points_transform(Mat *image, vpf pts){
     vpf dst = {
         Point2f(0.0, 0.0) ,
         Point2f(maxWidth, 0.0) ,
-        Point2f(maxWidth, maxHeight) ,
+        Point2f(maxWidth, maxHeight),
         Point2f(0.0, maxHeight)
-        // @caio-freitas talvez mostrar esses pontos na imagem final numerados ajude a debugar o código
     };
 
-    Mat M = getPerspectiveTransform(rect, dst);
-    Mat warped;
-    warpPerspective(*image, warped, M, Size(maxWidth, maxHeight));
-    *image = warped;
-    //if(DEBUG) imshow("warped", warped); // @caio-freitas ver a imagem cropada tbm é útil pra debugar
-    return M;
+    Mat M = getPerspectiveTransform(this->edge_pts, dst);
+    
+    warpPerspective(image, this->warped, M, Size(maxWidth, maxHeight));
 
+    return M;
 }
 
-float dot_product_angle(Point2f p1, Point2f p2){
+// Determines angle between vectors 'v1' and 'v2' using 'relative' as origin
+float HDetector::angle(Point2f v1, Point2f v2, Point2f relative){
     
-    float Vlenght1, Vlenght2; //modulo dos vetores
-    // a primeira vez é diferente das outras e precisa ser feita manualmente
+    float Vlenght1, Vlenght2; // Length of v1 and v2
     
-    Vlenght1 = sqrt((p1.x)*(p1.x) + (p1.y)*(p1.y));
-    Vlenght2 = sqrt((p2.x)*(p2.x) + (p2.y)*(p2.y));
-    float a = ((p1.x)*(p2.x) + (p1.y)*(p2.y))/(Vlenght1*Vlenght2);
+    Vlenght1 = sqrt((v1.x - relative.x)*(v1.x - relative.x) + (v1.y - relative.y)*(v1.y - relative.y));
+    Vlenght2 = sqrt((v2.x - relative.x)*(v2.x - relative.x) + (v2.y - relative.y)*(v2.y - relative.y));
+    // Takes dot product and divides by vector lengths to get cos of the angle
+    float a = ((v1.x - relative.x)*(v2.y - relative.y) - (v1.y - relative.y)*(v2.x -relative.x))/(Vlenght1*Vlenght2);
 
-    return acos(a);
+    return asin(a);
+}
+/* Checks if all sides of a 12 sided shape 'pts' are perpendicular and have the right orientation, 
+    using ANGLE_THRESH */
+bool HDetector::angle_check(vpf pts){
+      
+    int bitmasks[8] = {2145,195,390,780,1560,3120};
+    int current_bm = 0;
+
+    float a = 0;
+    for (int i = 0; i < 12; i++){
+        // General term
+        a = angle(pts[(12+i+1)%12], pts[(12+i-1)%12], pts[(12+i)%12]);
+        if ( abs( abs(a) - PI/2 ) < ANGLE_THRESH)
+            return false;
+        else
+            current_bm = current_bm | (a > 0) << i;
     }
 
-
-bool scalar_product_check(vpf pts){
-    float relativeX;
-    float relativeY;
-    float Vlenght1, Vlenght2; //modulo dos vetores
-    // a primeira vez é diferente das outras e precisa ser feita manualmente
-    relativeX = pts[0].x; 
-    relativeY = pts[0].y;
-    Vlenght1 = sqrt((pts[1].x - relativeX)*(pts[1].x - relativeX) + (pts[1].y - relativeY)*(pts[1].y - relativeY));
-    Vlenght2 = sqrt((pts[11].x - relativeX)*(pts[11].x - relativeX) + (pts[11].y - relativeY)*(pts[11].y - relativeY));
-    float a = ((pts[1].x - relativeX)*(pts[11].x - relativeX) + (pts[1].y - relativeY)*(pts[11].y - relativeY))/(Vlenght1*Vlenght2);
-    //agora o termo geral
-    if (acos(a) > ANGLE_THRESH_MIN and acos(a) < ANGLE_THRESH_MAX){
-        for (int i = 1; i <= 10; i++){
-            relativeX = pts[i].x; 
-            relativeY = pts[i].y;
-            Vlenght1 = sqrt((pts[i+1].x - relativeX)*(pts[i+1].x - relativeX) + (pts[i+1].y - relativeY)*(pts[i+1].y - relativeY));
-            Vlenght2 = sqrt((pts[i-1].x - relativeX)*(pts[i-1].x - relativeX) + (pts[i-1].y - relativeY)*(pts[i-1].y - relativeY));
-            a = ((pts[i+1].x - relativeX)*(pts[i-1].x - relativeX) + (pts[i+1].y - relativeY)*(pts[i-1].y - relativeY))/(Vlenght1*Vlenght2);
-            if (acos(a) > ANGLE_THRESH_MIN and acos(a) < ANGLE_THRESH_MAX){
-                continue;
-            }
-            else{
-                return false;
-            } 
+    /* cout << current_bm << endl; */
+    for(int bm : bitmasks){
+        if(current_bm == bm) 
+        {
+            if (!TESTE_VEL) cout << "H detectado"<< endl;
+            return true;
         }
     }
-    else{
-        return false;
-    }
-    return true;
+    return false;
 }
 
-Mat detect (Mat frame){
 
+
+// Takes an image 'frame' and detects whether it contains the letter H
+Mat HDetector::detect (Mat frame){
+    auto start = high_resolution_clock::now(); 
     Mat frame2 = frame;
     cvtColor(frame, frame, CV_RGB2GRAY);
-    GaussianBlur(frame, frame, Size(9,9), 0);
-    GaussianBlur(frame, frame, Size(9,9), 0);
-    threshold(frame, frame, 150, 255, 1); //invertido pelo exemplo TROCAR! //@caio-freitas trocaram?
-    //@caio-freitas seria bom parametrizar esses valores de threshold
-    vector<vp> contour;
-    findContours(frame, contour, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+    // Blur and threshold remove noise from image
 
-    for(vp cnt : contour)
+    for (int test = 0; test < NUM_GAUSS_BLUR; test++)
     {
+        GaussianBlur(frame, frame, Size(5,5), 0);
+    }
+    threshold(frame, frame, 200, 255, 1);
+    cv::adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 9, 20.0);
+    cv::adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0.0);
+
+    //Erode
+    /*int erosion_size = 1;
+    Mat element = getStructuringElement( MORPH_RECT,
+                                       Size( 2*erosion_size + 1, 2*erosion_size+1 ),
+                                       Point( erosion_size, erosion_size ) );
+    erode(frame, frame, element);*/
+    
+    //threshold(frame, frame, 150, 255, 1);
+    vector<vp> contour;
+    findContours(frame, contour, RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+    
+
+    for(vp cnt : contour){
+
         int peri = arcLength(cnt, true);
-        vpf approx;
-        approxPolyDP(cnt, approx, 0.02*peri, true);
-        
-        if (approx.size() == 12)
+        if (peri >= 0)
         {
-
-            //if(DEBUG) polylines(frame2, approx, true, Scalar(0,255,0), 5, 8, 0);
-
-            Rect2f bounds = boundingRect(approx);
-
-            vpf edge_pts = {Point2f(0,0), Point2f(0,0), Point2f(0,0), Point2f(0,0)};
+            vpf approx;
+            approxPolyDP(cnt, approx, 0.02*peri, true);
             
-            float a1 = dot_product_angle(approx[0] - approx[1], Point2f(0,1) );
-            float a2 = dot_product_angle(approx[1] - approx[2], Point2f(0,1) );
+            if (approx.size() == 12){
 
-            if( a1 < 0.1 || a2 < 0.1
-               || abs(a1 - PI) < 0.1 || abs(a1 - PI) < 0.1 ){
+                Rect2f bounds = boundingRect(approx);
                 
-                edge_pts = {
-                    Point2f (bounds.x, bounds.y) ,
-                    Point2f (bounds.x + bounds.width, bounds.y) , 
-                    Point2f (bounds.x + bounds.width, bounds.y) , 
-                    Point2f (bounds.x + bounds.width, bounds.y) , 
-                    Point2f (bounds.x, bounds.y + bounds.height) ,
-                    Point2f (bounds.x + bounds.width, bounds.y + bounds.height)
-                };
-            
-            else
-            
-                for(Point2f v : approx){
+                float a1 = angle(approx[0] - approx[1], Point2f(0,1));
+                float a2 = angle(approx[1] - approx[2], Point2f(0,1));
 
-                    if( abs(v.x - bounds.x) <= 1) edge_pts[0] = v;
-                    else if( abs(v.x - (bounds.x + bounds.width) ) <= 1) edge_pts[1] = v;
+                /* If the sides of the H are very close to parallel to its bounds,
+                    use the bounding rect vertices for warp */
+                if( a1 < 0.1 || a2 < 0.1
+                || abs(a1 - PI) < 0.1 || abs(a1 - PI) < 0.1 ){
+                    
+                    this->edge_pts = {
+                        Point2f (bounds.x, bounds.y) ,
+                        Point2f (bounds.x + bounds.width, bounds.y) , 
+                        Point2f (bounds.x, bounds.y + bounds.height) ,
+                        Point2f (bounds.x + bounds.width, bounds.y + bounds.height)
+                    };
+                
+                /* If they are far, use the vertices that are closest to the bounding
+                    rect sides */
+                }else{
+                
+                    for(Point2f v : approx){
 
-                    else if( abs(v.y - bounds.y) <= 1) edge_pts[2] = v;
-                    else if( abs(v.y - (bounds.y + bounds.height) ) <= 1) edge_pts[3] = v;
+                        // Close on left side of bound
+                        if( abs(v.x - bounds.x) <= 1) this->edge_pts[0] = v;
+                        // On right side
+                        else if( abs(v.x - (bounds.x + bounds.width) ) <= 1) this->edge_pts[1] = v;
+
+                        // On top
+                        else if( abs(v.y - bounds.y) <= 1) this->edge_pts[2] = v;
+                        //On bottom
+                        else if( abs(v.y - (bounds.y + bounds.height) ) <= 1) this->edge_pts[3] = v;
+
+                    }
 
                 }
 
-            }
-
-            four_points_transform(&frame, edge_pts);
-            
-            if(DEBUG){
-
-                imshow("warped", frame);
-
-                circle(frame2, edge_pts[0], 3, (255,0,0), 3 );
-                circle(frame2, edge_pts[1], 3, (255,0,0), 3 );
-                circle(frame2, edge_pts[2], 3, (255,0,0), 3 );                
-                circle(frame2, edge_pts[3], 3, (255,0,0), 3 );
-
-                circle(frame2, approx[3], 3, (0,0,255), 3 );
-                circle(frame2, approx[4], 3, (0,0,255), 3 );
-                circle(frame2, approx[5], 3, (0,0,255), 3 );
-
-                rectangle(frame2, bounds, (0,255,0));
-                imshow("Lines", frame2);
-            }
-            
-            if (scalar_product_check(approx)) {
-
-                Mat kernels[2];
-                kernels[0] = (Mat_<float>(12,1) <<
-                1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1 
-                );
-                kernels[1] = (Mat_<float>(12,1) <<
-                0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0
-                );
-
-                Mat small_img;
-                resize(frame, small_img, Size(12,12), INTER_AREA);
-                small_img.convertTo(small_img, CV_32FC2);
-
-
-                //polylines(frame2, approx, true, Scalar(0,255,0), 5, 8, 0); <<-- Da core dump                
-                if(DEBUG){ 
-
-                    //cout << small_img << endl;
-
-                    Mat big_small_img;
-                    resize(small_img, big_small_img, Size(300,300));
-                    imshow("small_img", big_small_img);
-                }
-
-                int sides = sum( (small_img)*(kernels[0]) ) [0];
-                int middle = sum( (small_img)*(kernels[1]) ) [0];
-
-                int exp_sides[2] = {2*(255*12*4), 4*(255*4*4)};
-                int exp_middle[2] = {255*4*4, 255*12*4};
-
-                //Precisam ser melhor ajustados
-                float HIGH_THRESH = 0.9;
-                float LOW_THRESH = 1.2;
-
-                if( (sides >= exp_sides[0]*HIGH_THRESH && middle <= exp_middle[0]*LOW_THRESH) 
-                || (sides <= exp_sides[1]*LOW_THRESH && middle >= exp_middle[1]*HIGH_THRESH) ){
-                    cout << "H detectado"<< endl;                    
-                }else cout << endl;
+                Mat perspective = four_points_transform(frame);
+                vpf transformed;
+                perspectiveTransform(approx, transformed, perspective);
                 
+                if(DEBUG){
+                    imshow("warped", frame);
 
-            }else cout << endl;
-            
+                    // Shows captures edge of H in black
+                    circle(frame2, this->edge_pts[0], 3, (255,0,0), 3 );
+                    circle(frame2, this->edge_pts[1], 3, (255,0,0), 3 );
+                    circle(frame2, this->edge_pts[2], 3, (255,0,0), 3 );                
+                    circle(frame2, this->edge_pts[3], 3, (255,0,0), 3 );
+
+                    // Draws bound
+                    rectangle(frame2, bounds, (0,255,0));
+                    imshow("Lines", frame2);
+                }
+                
+                if (angle_check(approx)){
+
+                    if (!TESTE_VEL) cout << "H detectado"<< endl;                    
+                    auto stop = high_resolution_clock::now(); 
+                    auto duration = duration_cast<microseconds>(stop - start); 
+                    if (!TESTE_VEL) cout << "Time from getting frame to detecting H: " ;
+                    
+                    cout << duration.count() << endl; 
+                    
+
+                }else if (!TESTE_VEL) cout << endl;
+                
+            }
         }
     }
     return frame2;
 }
 
-int main()
-{
+// For testing
+int main(){
+    NUM_GAUSS_BLUR = 1;
+    if (TESTE_VEL+1) cin >> NUM_GAUSS_BLUR;
     Mat frame;
-    VideoCapture video(0);
-    video >> frame;
-    while (true)
+    if (TEST_VID) 
     {
-        imshow("display", detect(frame));
+        VideoCapture cap("VIDEO.mp4"); 
+        HDetector* detector = new HDetector();
+        for (int c = 30*(60*1+53) /**0 + 1*/; c> 0; c--) cap >> frame;
+        while (true){
+        imshow("display", detector->detect(frame));
         if (waitKey(30) == 27) break;
+        cap >> frame;
+        }
+    }
+    else 
+    {
+        VideoCapture video(0);
+        HDetector* detector = new HDetector();
         video >> frame;
+        while (true){
+            imshow("display", detector->detect(frame));
+            if (waitKey(30) == 27) break;
+            video >> frame;
+        }
     }
 }
 
