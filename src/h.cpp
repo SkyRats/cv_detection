@@ -16,7 +16,7 @@ using namespace cv;
 #define vpf vector<Point2f>
 
 // Set true for debugging purposes, showing internals of algorithm
-#define DEBUG false
+#define DEBUG true
 
 int NUM_GAUSS_BLUR = 0;
 
@@ -102,7 +102,7 @@ void HDetector::image_cb(sensor_msgs::Image img){
             msg.center_y = this->getCenter_Y();
             msg.area_ratio = this->getArea();
     
-        }else{
+        } else{
             msg.detected = false;
             msg.center_x = -1;
             msg.center_y = -1;
@@ -204,7 +204,7 @@ int HDetector::getCenter_Y(){
 // Takes an image 'frame' and detects whether it contains the letter H
 bool HDetector::detect (Mat frame){
     bool detected = false;
-
+    ROS_INFO("Entrou no detect")
     Mat frame2 = frame;
     
     cvtColor(frame, frame, CV_RGB2GRAY);
@@ -287,7 +287,7 @@ bool HDetector::detect (Mat frame){
                 rectangle(frame2, bounds, (0,255,0));
                 imshow("Lines", frame2);
             }
-            
+            ROS_INFO("Tested for angle_check")
             if (angle_check(approx)){
                 detected = true;
             }
@@ -304,7 +304,7 @@ bool HDetector::detect (Mat frame){
 
 // For testing
 int main(int argc, char** arvg){
-    
+    ROS_INFO("Running H detection node!")
     ros::init(argc, arvg, "h_node");
     HDetector * detector = new HDetector();
     ros::spin();
