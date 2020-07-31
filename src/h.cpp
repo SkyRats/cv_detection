@@ -16,7 +16,7 @@ using namespace cv;
 #define vpf vector<Point2f>
 
 // Set true for debugging purposes, showing internals of algorithm
-#define DEBUG true
+#define DEBUG false
 
 int NUM_GAUSS_BLUR = 0;
 
@@ -35,9 +35,10 @@ class HDetector {
         float angle(Point2f v1, Point2f v2, Point2f relative = Point2f(0,0) );
         bool angle_check(vpf pts);
         ros::NodeHandle n;
-        void image_cb(sensor_msgs::Image img);
+        void image_cb(const sensor_msgs::ImageConstPtr& img);
         void runnin_state_cb(std_msgs::Bool data);
         ros::Publisher h_pub;
+        ros::Publisher img_debug_pub;
         ros::Subscriber h_sub_image;
         ros::Subscriber h_sub_runner;
         bool runnin;
@@ -54,6 +55,7 @@ class HDetector {
 
 HDetector::HDetector(){
     this->h_pub = this->n.advertise<cv_detection::H_info>("/cv_detection/detection", 0);
+    this->img_debug_pub = this->n.advertise<sensor_msgs::Image>("/cv_detection/debug/image_raw", 0);
     this->h_sub_image = this->n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 1000, &HDetector::image_cb, this);
     this->h_sub_runner = this->n.subscribe("/cv_detection/set_running_state",10, &HDetector::runnin_state_cb, this);
 }
@@ -84,11 +86,13 @@ void HDetector::order_points(){
 void HDetector::runnin_state_cb(std_msgs::Bool data){
     this->runnin = data.data;
 }
-void HDetector::image_cb(sensor_msgs::Image img){
+void HDetector::image_cb(const sensor_msgs::ImageConstPtr& img)
+{
     if(this->runnin){
         cv_bridge::CvImagePtr cv_ptr;
         try{
             cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::BGR8);
+        
         }catch (cv_bridge::Exception& e){
             ROS_ERROR("cv_bridge exception: %s", e.what());
             return;
@@ -204,22 +208,32 @@ int HDetector::getCenter_Y(){
 // Takes an image 'frame' and detects whether it contains the letter H
 bool HDetector::detect (Mat frame){
     bool detected = false;
-    ROS_INFO("Entrou no detect")
+    ROS_INFO("Entrou no detect");
     Mat frame2 = frame;
     
-    cvtColor(frame, frame, CV_RGB2GRAY);
+    cvtColor(frame, frame, CV_BGR2GRAY); ////////////////////// LINHA DO CAPETA
     // Blur and threshold remove noise from image
     
     for (int test = 0; test < NUM_GAUSS_BLUR; test++){
         GaussianBlur(frame, frame, Size(5,5), 0);
     }
-    threshold(frame, frame, 200, 255, 1);
+    
+    threshold(frame, frame, 90, 255, 1);
     adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 9, 20.0);
     adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0.0);
+    
 
     vector<vp> contour;
     findContours(frame, contour, RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
-
+    ///////////////// publica no topico pra debugar ////////////////////////////
+    std_msgs::Header header; // empty header
+    sensor_msgs::Image img_msg;
+    header.stamp = ros::Time::now(); // time
+    cv_bridge::CvImage img_bridge;
+    img_bridge = cv_bridge::CvImage(header, sensor_msgs::image_encodings::MONO8, frame);
+    img_bridge.toImageMsg(img_msg); // from cv_bridge to sensor_msgs::Image
+    this->img_debug_pub.publish(img_msg);
+    ///////////////////////////////////////////////////////////////////////////
     if(DEBUG){
         imshow("Lines", frame2);
         imshow("Processed", frame);
@@ -232,7 +246,7 @@ bool HDetector::detect (Mat frame){
         approxPolyDP(cnt, approx, 0.02*peri, true);
         
         if (approx.size() == 12){
-
+            ROS_INFO("Size 12");
             this->bounds = boundingRect(approx); // Precisa ser Rect2f?
             
             float a1 = angle(approx[0] - approx[1], Point2f(0,1));
@@ -242,7 +256,7 @@ bool HDetector::detect (Mat frame){
                 use the bounding rect vertices for warp */
             if( a1 < 0.1 || a2 < 0.1
                || abs(a1 - PI) < 0.1 || abs(a1 - PI) < 0.1 ){
-                
+                ROS_INFO("3");
                 this->edge_pts = {
                     Point2f (bounds.x, bounds.y) ,
                     Point2f (bounds.x + bounds.width, bounds.y) , 
@@ -253,7 +267,7 @@ bool HDetector::detect (Mat frame){
             /* If they are far, use the vertices that are closest to the bounding
                 rect sides */
             }else{
-            
+                ROS_INFO("4");
                 for(Point2f v : approx){
 
                     // Close on left side of bound
@@ -287,7 +301,6 @@ bool HDetector::detect (Mat frame){
                 rectangle(frame2, bounds, (0,255,0));
                 imshow("Lines", frame2);
             }
-            ROS_INFO("Tested for angle_check")
             if (angle_check(approx)){
                 detected = true;
             }
@@ -304,7 +317,7 @@ bool HDetector::detect (Mat frame){
 
 // For testing
 int main(int argc, char** arvg){
-    ROS_INFO("Running H detection node!")
+    ROS_INFO("Running H detection node!");
     ros::init(argc, arvg, "h_node");
     HDetector * detector = new HDetector();
     ros::spin();
