@@ -5,9 +5,8 @@ using namespace cv;
 #include "ros/ros.h"
 #include <sensor_msgs/image_encodings.h> 
 #include <cv_bridge/cv_bridge.h>
-
+#include <sensor_msgs/Image.h>
 #include "cv_detection/H_info.h"
-//#include "cv_detection/HInfo.h"
 #include "std_msgs/Bool.h"
 
 #define ANGLE_THRESH 0.01
@@ -35,6 +34,13 @@ class HDetector {
         Mat four_points_transform(Mat image);
         float angle(Point2f v1, Point2f v2, Point2f relative = Point2f(0,0) );
         bool angle_check(vpf pts);
+        ros::NodeHandle n;
+        void image_cb(sensor_msgs::Image img);
+        void runnin_state_cb(std_msgs::Bool data);
+        ros::Publisher h_pub;
+        ros::Subscriber h_sub_image;
+        ros::Subscriber h_sub_runner;
+        bool runnin;
     public:
         Mat warped; 
         HDetector();
@@ -46,7 +52,11 @@ class HDetector {
 
 };
 
-HDetector::HDetector() {}
+HDetector::HDetector(){
+    this->h_pub = this->n.advertise<cv_detection::H_info>("/cv_detection/detection", 0);
+    this->h_sub_image = this->n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 1000, &HDetector::image_cb, this);
+    this->h_sub_runner = this->n.subscribe("/cv_detection/set_running_state",10, &HDetector::runnin_state_cb, this);
+}
 
 /* Order points in edge_pts so that the first exit is the top-left, the second 
 top-right, the third bottom-right, and the fourth bottom-left */   
@@ -71,7 +81,37 @@ void HDetector::order_points(){
     }
 
 }
+void HDetector::runnin_state_cb(std_msgs::Bool data){
+    this->runnin = data.data;
+}
+void HDetector::image_cb(sensor_msgs::Image img){
+    if(this->runnin){
+        cv_bridge::CvImagePtr cv_ptr;
+        try{
+            cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::BGR8);
+        }catch (cv_bridge::Exception& e){
+            ROS_ERROR("cv_bridge exception: %s", e.what());
+            return;
+        }
 
+        cv_detection::H_info msg;
+
+        if (this->detect(cv_ptr->image)){
+            msg.detected = true;
+            msg.center_x = this->getCenter_X();
+            msg.center_y = this->getCenter_Y();
+            msg.area_ratio = this->getArea();
+    
+        }else{
+            msg.detected = false;
+            msg.center_x = -1;
+            msg.center_y = -1;
+            msg.area_ratio = -1;
+        }
+
+        this->h_pub.publish(msg);
+    }
+}
 /* Takes an image as argument and returns warped perspective, moving edge_pts to
 the edge of the frame */
 Mat HDetector::four_points_transform(Mat image){
@@ -262,103 +302,11 @@ bool HDetector::detect (Mat frame){
     return detected;
 }
 
-class Subscriber{
-    public:
-        void callback(std_msgs::Bool received);
-        bool running_state;
-        bool getRunningState();
-};
-
-void Subscriber::callback(std_msgs::Bool received){
-    this->running_state = received.data;
-}
-
-bool Subscriber::getRunningState(){
-    return this->running_state;
-}
-
-void callback(const sensor_msgs::ImageConstPtr& img_msg){
-    Subscriber* subscriber = new Subscriber();
-    if(subscriber->getRunningState()){
-        cv_bridge::CvImagePtr cv_ptr;
-        ros::NodeHandle n;
-        ros::Publisher h_pub = n.advertise<cv_detection::H_info>("/cv_detection/detection", 0);
-        //ros::Publisher h_pub = n.advertise<cv_detection::HInfo>("/cv_detection/detection", 0);
-    
-        try{
-            cv_ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8);
-        }catch (cv_bridge::Exception& e){
-            ROS_ERROR("cv_bridge exception: %s", e.what());
-            return;
-        }
-
-        cv_detection::H_info msg;
-        //cv_detection::HInfo msg;
-        HDetector* detector = new HDetector();
-
-        if ( detector->detect(cv_ptr->image) ){
-            msg.detected = true;
-            msg.center_x = detector->getCenter_X();
-            msg.center_y = detector->getCenter_Y();
-            msg.area_ratio = detector->getArea();
-    
-        }else{
-            msg.detected = false;
-            msg.center_x = -1;
-            msg.center_y = -1;
-            msg.area_ratio = -1;
-        }
-
-        h_pub.publish(msg);
-    }
-}
-
 // For testing
 int main(int argc, char** arvg){
     
     ros::init(argc, arvg, "h_node");
-    ros::NodeHandle n;
-    ros::Publisher h_pub = n.advertise<cv_detection::H_info>("h_detection", 0);
-    //ros::Publisher h_pub = n.advertise<cv_detection::HInfo>("h_detection", 0);
-    cv_detection::H_info msg;
-    //cv_detection::HInfo msg;
-    
-    /* For testing with Gazebo iris_fpv_cam and running_state */
-    // /*
-    ros::Subscriber h_sub_image = n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 1000, callback);
-    Subscriber listener;
-    ros::Subscriber h_sub_runner = n.subscribe("/cv_detection/set_running_state",10, &Subscriber::callback, &listener); //starts when run_h_mission.py commands
+    HDetector * detector = new HDetector();
     ros::spin();
-    // */
-    
-    /* For testing directly on webcam*/
-    /*
-    Mat frame;
-
-    VideoCapture video(0);
-    video >> frame;
-    HDetector* detector = new HDetector();
-    while (ros::ok()){
-
-        ros::spinOnce();
-
-        if ( detector->detect(frame) ){
-            msg.detected = true;
-            msg.center_x = detector->getCenter_X();
-            msg.center_y = detector->getCenter_Y();
-            msg.area_ratio = detector->getArea();
-        
-        }else{
-            msg.detected = false;
-            msg.center_x = -1;
-            msg.center_y = -1;
-            msg.area_ratio = -1;
-        }
-
-        h_pub.publish(msg);
-        if (waitKey(30) == 27) break;
-        video >> frame; 
-    }
-    */ 
 }
 
