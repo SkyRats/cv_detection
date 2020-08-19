@@ -10,7 +10,7 @@ using namespace cv;
 #include "std_msgs/Bool.h"
 
 #define ANGLE_THRESH 0.01
-#define PI 3.14159
+#define PI 3.14159265
 
 #define vp vector<Point>
 #define vpf vector<Point2f>
@@ -50,7 +50,6 @@ class HDetector {
         void setArea(vp contour, Mat frame);
         int getCenter_X();
         int getCenter_Y();
-
 };
 
 HDetector::HDetector(){
@@ -105,15 +104,16 @@ void HDetector::image_cb(const sensor_msgs::ImageConstPtr& img)
             msg.center_x = this->getCenter_X();
             msg.center_y = this->getCenter_Y();
             msg.area_ratio = this->getArea();
-    
-        } else{
-            msg.detected = false;
-            msg.center_x = -1;
-            msg.center_y = -1;
-            msg.area_ratio = -1;
+            this->h_pub.publish(msg);
         }
+        // else{
+        //     msg.detected = false;
+        //     msg.center_x = -1;
+        //     msg.center_y = -1;
+        //     msg.area_ratio = -1;
+        // }
 
-        this->h_pub.publish(msg);
+        
     }
 }
 /* Takes an image as argument and returns warped perspective, moving edge_pts to
