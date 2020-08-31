@@ -208,7 +208,7 @@ int HDetector::getCenter_Y(){
 // Takes an image 'frame' and detects whether it contains the letter H
 bool HDetector::detect (Mat frame){
     bool detected = false;
-    ROS_INFO("Entrou no detect");
+    //("Entrou no detect");
     Mat frame2 = frame;
     
     cvtColor(frame, frame, CV_BGR2GRAY); ////////////////////// LINHA DO CAPETA
@@ -246,7 +246,7 @@ bool HDetector::detect (Mat frame){
         approxPolyDP(cnt, approx, 0.02*peri, true);
         
         if (approx.size() == 12){
-            ROS_INFO("Size 12");
+            //ROS_INFO("Size 12");
             this->bounds = boundingRect(approx); // Precisa ser Rect2f?
             
             float a1 = angle(approx[0] - approx[1], Point2f(0,1));
@@ -256,7 +256,7 @@ bool HDetector::detect (Mat frame){
                 use the bounding rect vertices for warp */
             if( a1 < 0.1 || a2 < 0.1
                || abs(a1 - PI) < 0.1 || abs(a1 - PI) < 0.1 ){
-                ROS_INFO("3");
+                //ROS_INFO("3");
                 this->edge_pts = {
                     Point2f (bounds.x, bounds.y) ,
                     Point2f (bounds.x + bounds.width, bounds.y) , 
@@ -267,7 +267,7 @@ bool HDetector::detect (Mat frame){
             /* If they are far, use the vertices that are closest to the bounding
                 rect sides */
             }else{
-                ROS_INFO("4");
+                //ROS_INFO("4");
                 for(Point2f v : approx){
 
                     // Close on left side of bound
