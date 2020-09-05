@@ -106,16 +106,10 @@ void HDetector::image_cb(const sensor_msgs::ImageConstPtr& img)
             msg.area_ratio = this->getArea();
             this->h_pub.publish(msg);
         }
-        // else{
-        //     msg.detected = false;
-        //     msg.center_x = -1;
-        //     msg.center_y = -1;
-        //     msg.area_ratio = -1;
-        // }
-
         
     }
 }
+
 /* Takes an image as argument and returns warped perspective, moving edge_pts to
 the edge of the frame */
 Mat HDetector::four_points_transform(Mat image){
@@ -218,7 +212,7 @@ bool HDetector::detect (Mat frame){
         GaussianBlur(frame, frame, Size(5,5), 0);
     }
     
-    threshold(frame, frame, 90, 255, 1);
+    threshold(frame, frame, 115, 255, 1);
     adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 9, 20.0);
     adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0.0);
     
