@@ -237,15 +237,13 @@ Mat HDetector::detect(Mat frame)
                 {
                     imshow("warped", frame);
 
-                    // Shows captures edge of H in black
-                    circle(frame2, this->edge_pts[0], 3, (255, 0, 0), 3);
-                    circle(frame2, this->edge_pts[1], 3, (255, 0, 0), 3);
-                    circle(frame2, this->edge_pts[2], 3, (255, 0, 0), 3);
-                    circle(frame2, this->edge_pts[3], 3, (255, 0, 0), 3);
+                    // // Shows captures edge of H in black
+                    // circle(frame2, this->edge_pts[0], 3, (255, 0, 0), 3);
+                    // circle(frame2, this->edge_pts[1], 3, (255, 0, 0), 3);
+                    // circle(frame2, this->edge_pts[2], 3, (255, 0, 0), 3);
+                    // circle(frame2, this->edge_pts[3], 3, (255, 0, 0), 3);
 
                     // Draws bound
-                    rectangle(frame2, bounds, (0, 255, 0));
-                    imshow("Lines", frame2);
                 }
 
                 if (angle_check(approx))
@@ -253,6 +251,8 @@ Mat HDetector::detect(Mat frame)
 
                     if (!TESTE_VEL)
                         cout << "Cruz detectado" << endl;
+                    rectangle(frame2, bounds, (0, 255, 0));
+                    imshow("Lines", frame2);
                     auto stop = high_resolution_clock::now();
                     auto duration = duration_cast<microseconds>(stop - start);
                     if (!TESTE_VEL)
